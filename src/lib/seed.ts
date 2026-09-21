@@ -23,7 +23,7 @@ const ids = {
 
 export function createSeedState(): SeatHubState {
   return {
-    version: 14,
+    version: 16,
     currentUserId: ids.anna,
     demoRole: "mitarbeiter",
     departments: [
@@ -426,6 +426,7 @@ export function createSeedState(): SeatHubState {
         milestoneLabel: "Muster Reihe 1 Sport",
         milestoneRisk: "Alcantara Sportsitz – Bezug/Kunststoff-Anbindung kritisch.",
         supplyScope: "komplettsitz",
+        equipment: ["sitzheizung", "sitzlueftung", "memory"],
       },
       {
         id: ids.pAudi,
@@ -440,6 +441,7 @@ export function createSeedState(): SeatHubState {
         milestoneLabel: "Mustertermin",
         milestoneRisk: "Mustertermin gefährdet – Schnittentwicklung hinter Plan, Freigabe offen.",
         supplyScope: "bezug_schnittstelle",
+        equipment: ["sitzheizung", "airbag"],
       },
       {
         id: ids.pMerc,
@@ -453,6 +455,7 @@ export function createSeedState(): SeatHubState {
         milestoneLabel: "CAD-Lieferung",
         milestoneRisk: "Externe Schnittentwicklung verspätet.",
         supplyScope: "bezug_schnittstelle",
+        equipment: ["sitzheizung"],
       },
       {
         id: ids.pBmw,
@@ -466,6 +469,7 @@ export function createSeedState(): SeatHubState {
         milestoneLabel: "Materialeingang",
         milestoneRisk: "Materiallieferung offen – beobachten.",
         supplyScope: "bezug",
+        equipment: [],
       },
     ],
     structureNodes: [
@@ -1659,6 +1663,36 @@ export function createSeedState(): SeatHubState {
         description: "Nahtbild an Kopfstütze laut LOP nicht akzeptabel – Nacharbeit Muster.",
         createdAt: "2026-09-15T08:00:00.000Z",
         risk: "rot",
+        history: [
+          {
+            id: "th-1-1",
+            at: "2026-09-15T08:00:00.000Z",
+            actorUserId: ids.frank,
+            action: "Auftrag angelegt",
+            detail: "Nahtbild Kopfstütze nacharbeiten",
+          },
+          {
+            id: "th-1-2",
+            at: "2026-09-15T09:30:00.000Z",
+            actorUserId: ids.maria,
+            action: "Zuweisung geändert",
+            detail: "nicht zugewiesen → Ana Ionescu",
+          },
+          {
+            id: "th-1-3",
+            at: "2026-09-16T10:00:00.000Z",
+            actorUserId: ids.maria,
+            action: "Zuweisung geändert",
+            detail: "Ana Ionescu → Anna Berger",
+          },
+          {
+            id: "th-1-4",
+            at: "2026-09-16T10:05:00.000Z",
+            actorUserId: ids.anna,
+            action: "Status geändert",
+            detail: "Offen → In Bearbeitung",
+          },
+        ],
       },
       {
         id: "t-2",
@@ -1675,6 +1709,22 @@ export function createSeedState(): SeatHubState {
         description: "Finale Anpassung nach Prüfung Rev. 06.",
         createdAt: "2026-09-16T09:00:00.000Z",
         risk: "orange",
+        history: [
+          {
+            id: "th-2-1",
+            at: "2026-09-16T09:00:00.000Z",
+            actorUserId: ids.lena,
+            action: "Auftrag angelegt",
+            detail: "Schnittkontur Rev. 07 finalisieren",
+          },
+          {
+            id: "th-2-2",
+            at: "2026-09-16T09:15:00.000Z",
+            actorUserId: ids.lena,
+            action: "Zuweisung geändert",
+            detail: "nicht zugewiesen → Tom Keller",
+          },
+        ],
       },
       {
         id: "t-3",
@@ -2110,5 +2160,6 @@ export function createSeedState(): SeatHubState {
         detail: "Nahtbild Kopfstütze",
       },
     ],
+    programTemplates: [],
   };
 }

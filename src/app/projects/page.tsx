@@ -2,22 +2,24 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { CreateProgramWizard } from "@/components/CreateProgramWizard";
 import {
   type ArtFilter,
   ModuleKindFilter,
   partMatchesArt,
 } from "@/components/ModuleKindFilter";
 import { ProgressBar } from "@/components/ProgressBar";
-import { AmpelBadge, PageHeader, Panel, StatusPill } from "@/components/ui";
+import { AmpelBadge, Button, PageHeader, Panel, StatusPill } from "@/components/ui";
 import { projectStatusLabel } from "@/lib/labels";
 import { projectReleaseProgress } from "@/lib/progress";
 import { useStore } from "@/lib/store";
-import { getChildren, supplyScopeLabel } from "@/lib/structure";
+import { equipmentLabels, getChildren, supplyScopeLabel } from "@/lib/structure";
 import type { ModuleKind } from "@/lib/types";
 
 export default function ProjectsPage() {
   const { state } = useStore();
   const [artFilter, setArtFilter] = useState<ArtFilter>("alle");
+  const [showWizard, setShowWizard] = useState(false);
 
   const availableArts = useMemo(() => {
     const set = new Set<ModuleKind>();
@@ -47,7 +49,16 @@ export default function ProjectsPage() {
         eyebrow="Kunde → Programm → Bauteile"
         title="Projekte"
         description="Nach Art filtern (Bezug, Kunststoff, Schaum, Metall …). Fortschritt = Anteil freigegebener Bauteile."
+        actions={
+          <Button onClick={() => setShowWizard((v) => !v)}>
+            {showWizard ? "Assistent schließen" : "Neues Programm"}
+          </Button>
+        }
       />
+
+      {showWizard ? (
+        <CreateProgramWizard onCancel={() => setShowWizard(false)} />
+      ) : null}
 
       <div className="mb-6">
         <ModuleKindFilter
@@ -82,6 +93,7 @@ export default function ProjectsPage() {
                 );
                 const rows = getChildren(state.structureNodes, p.id, null);
                 const progress = projectReleaseProgress(parts);
+                const equip = equipmentLabels(p.equipment);
                 return (
                   <Link key={p.id} href={`/projects/${p.id}`}>
                     <Panel className="transition hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)]">
@@ -108,6 +120,18 @@ export default function ProjectsPage() {
                             <span>{tasks.length} Aufträge</span>
                             <span>{lops.length} LOPs</span>
                           </div>
+                          {equip.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {equip.map((label) => (
+                                <span
+                                  key={label}
+                                  className="rounded-md border border-[var(--line)] bg-[var(--bg)] px-2 py-0.5 text-xs text-[var(--ink-muted)]"
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                           {rows.length > 0 ? (
                             <div className="mt-2.5 flex flex-wrap gap-1.5">
                               {rows.map((r) => (

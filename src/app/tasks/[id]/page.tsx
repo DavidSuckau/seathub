@@ -439,19 +439,31 @@ export default function TaskDetailPage() {
             </div>
           </Panel>
 
-          <Panel title="Aktivität">
-            <ul className="space-y-3 text-sm">
-              {state.activityLog
-                .filter((a) => a.entityId === task.id || a.detail?.includes(task.title))
-                .slice(0, 8)
-                .map((a) => (
-                  <li key={a.id} className="border-b border-[var(--line)] pb-2 last:border-0">
-                    <p className="font-medium">{a.action}</p>
-                    <p className="text-[var(--ink-subtle)]">
-                      {getUser(a.actorUserId)?.name} · {formatDateTime(a.at)}
+          <Panel title="Chronik">
+            <p className="mb-3 text-xs text-[var(--ink-muted)]">
+              Zuweisungen und Änderungen sind dokumentiert – wer hat wann was gemacht.
+            </p>
+            <ul className="space-y-0">
+              {[...(task.history ?? [])]
+                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+                .map((h) => (
+                  <li
+                    key={h.id}
+                    className="relative border-l border-[var(--line-strong)] pb-4 pl-4 last:pb-0"
+                  >
+                    <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--accent)] bg-[var(--surface)]" />
+                    <p className="text-sm font-medium text-[var(--ink)]">{h.action}</p>
+                    {h.detail ? (
+                      <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{h.detail}</p>
+                    ) : null}
+                    <p className="mt-1 text-[11px] text-[var(--ink-subtle)]">
+                      {getUser(h.actorUserId)?.name ?? "System"} · {formatDateTime(h.at)}
                     </p>
                   </li>
                 ))}
+              {(task.history?.length ?? 0) === 0 ? (
+                <li className="text-sm text-[var(--ink-subtle)]">Noch keine Chronik-Einträge.</li>
+              ) : null}
             </ul>
           </Panel>
         </div>

@@ -38,6 +38,26 @@ export const supplyScopeHint: Record<SupplyScope, string> = {
     "Bezug sowie eigene Struktur-, Kunststoff-, Schaum- und/oder Metall-Bauteile.",
 };
 
+/** Typische Ausstattungsmerkmale bei Programm-Anlage (Bezüge / Schaum) */
+export const EQUIPMENT_OPTIONS = [
+  { id: "sitzheizung", label: "Sitzheizung" },
+  { id: "sitzlueftung", label: "Sitzlüftung" },
+  { id: "massage", label: "Massage" },
+  { id: "memory", label: "Memory" },
+  { id: "airbag", label: "Seitenairbag im Sitz" },
+  { id: "lordose", label: "Lordosenstütze" },
+  { id: "durchlade", label: "Durchlade / Armlehne" },
+] as const;
+
+export const equipmentLabel = Object.fromEntries(
+  EQUIPMENT_OPTIONS.map((o) => [o.id, o.label]),
+) as Record<string, string>;
+
+export function equipmentLabels(ids: string[] | undefined): string[] {
+  if (!ids?.length) return [];
+  return ids.map((id) => equipmentLabel[id] ?? id);
+}
+
 export const sideLabel: Record<PartSide, string> = {
   links: "Links",
   rechts: "Rechts",

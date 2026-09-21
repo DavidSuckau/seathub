@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { uid } from "./labels";
+import { taskStatusLabel, uid } from "./labels";
 import {
   applyComponentDecisions,
   carryOverComponentStands,
@@ -20,6 +20,8 @@ import {
 } from "./components";
 import { nextRevisionNumber } from "./revisions";
 import { loadState, resetState, saveState } from "./storage";
+import { supplyScopeLabel } from "./structure";
+import { seatDisplayLabel } from "./program-templates";
 import type {
   Activity,
   Approval,
@@ -27,11 +29,15 @@ import type {
   Lop,
   LopHistoryEntry,
   Part,
+  ProgramCreateConfig,
+  ProgramTemplate,
   Revision,
   SeatHubState,
   StructureNode,
   Substitution,
+  SupplyScope,
   Task,
+  TaskHistoryEntry,
   User,
 } from "./types";
 
@@ -80,6 +86,13 @@ type StoreContextValue = {
     seatVariantId: string;
     label: string;
   }) => StructureNode;
+  /** Neues Programm inkl. Sitzreihen / Varianten / Ausstattung */
+  addConfiguredProject: (config: ProgramCreateConfig) => SeatHubState["projects"][0];
+  /** Eigene Vorlage ins Archiv legen */
+  saveProgramTemplate: (
+    tpl: Omit<ProgramTemplate, "id" | "custom"> & { id?: string },
+  ) => ProgramTemplate;
+  deleteProgramTemplate: (id: string) => void;
   /** Profil an weiteren Bezug knüpfen (geteilte Verwendung) */
   linkComponentToAssembly: (componentPartId: string, assemblyPartId: string) => void;
   /** Neue Entwicklungsschleife: nächster Stand „in Entwicklung“ */
@@ -112,6 +125,67 @@ type StoreContextValue = {
 };
 
 const StoreContext = createContext<StoreContextValue | null>(null);
+
+function modulesForScope(
+  projectId: string,
+  seatVariantId: string,
+  scope: SupplyScope,
+): StructureNode[] {
+  const modules: StructureNode[] = [
+    {
+      id: uid(),
+      projectId,
+      parentId: seatVariantId,
+      type: "modul",
+      label: "Bezug",
+      moduleKind: "bezug",
+      sortOrder: 1,
+    },
+  ];
+  if (scope === "bezug_schnittstelle") {
+    modules.push({
+      id: uid(),
+      projectId,
+      parentId: seatVariantId,
+      type: "modul",
+      label: "Anbindung",
+      moduleKind: "schnittstelle",
+      sortOrder: 2,
+    });
+  }
+  if (scope === "komplettsitz") {
+    modules.push(
+      {
+        id: uid(),
+        projectId,
+        parentId: seatVariantId,
+        type: "modul",
+        label: "Kunststoff",
+        moduleKind: "kunststoff",
+        sortOrder: 2,
+      },
+      {
+        id: uid(),
+        projectId,
+        parentId: seatVariantId,
+        type: "modul",
+        label: "Schaum",
+        moduleKind: "schaum",
+        sortOrder: 3,
+      },
+      {
+        id: uid(),
+        projectId,
+        parentId: seatVariantId,
+        type: "modul",
+        label: "Struktur / Metall",
+        moduleKind: "struktur",
+        sortOrder: 4,
+      },
+    );
+  }
+  return modules;
+}
 
 function withSave(updater: (prev: SeatHubState) => SeatHubState) {
   return (prev: SeatHubState) => {
@@ -190,14 +264,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       logActivity,
       addTask: (task) => {
+        const createdAt = new Date().toISOString();
+        const actorId = task.createdByUserId ?? "";
+        const history: TaskHistoryEntry[] = [
+          {
+            id: uid(),
+            at: createdAt,
+            actorUserId: actorId,
+            action: "Auftrag angelegt",
+            detail: task.title,
+          },
+        ];
+        if (task.assigneeId) {
+          history.push({
+            id: uid(),
+            at: createdAt,
+            actorUserId: actorId,
+            action: "Zugewiesen",
+            detail: task.assigneeId,
+          });
+        }
         const created: Task = {
           ...task,
           id: uid(),
-          createdAt: new Date().toISOString(),
+          createdAt,
+          history,
         };
-        mutate((prev) => ({ ...prev, tasks: [created, ...prev.tasks] }));
+        mutate((prev) => {
+          const withNames = {
+            ...created,
+            history: created.history?.map((h) => {
+              if (h.action !== "Zugewiesen") return h;
+              const name = prev.users.find((u) => u.id === h.detail)?.name;
+              return name ? { ...h, detail: name } : h;
+            }),
+          };
+          return { ...prev, tasks: [withNames, ...prev.tasks] };
+        });
         logActivity({
-          action: "Aufgabe angelegt",
+          action: "Auftrag angelegt",
           entityType: "task",
           entityId: created.id,
           detail: created.title,
@@ -205,29 +310,111 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return created;
       },
       updateTask: (id, patch) => {
-        mutate((prev) => ({
-          ...prev,
-          tasks: prev.tasks.map((t) => {
-            if (t.id !== id) return t;
-            const next = { ...t, ...patch };
-            if (
-              (patch.status === "in_bearbeitung" || patch.status === "zur_pruefung") &&
-              !next.startedAt
-            ) {
-              next.startedAt = new Date().toISOString();
-            }
-            if (
-              (patch.status === "erledigt" || patch.status === "abgeschlossen") &&
-              !next.completedAt
-            ) {
-              next.completedAt = new Date().toISOString();
-              if (next.progress < 100) next.progress = 100;
-            }
-            return next;
-          }),
-        }));
+        mutate((prev) => {
+          const actorId = prev.currentUserId;
+          const now = new Date().toISOString();
+          const nameOf = (uid?: string) =>
+            uid ? prev.users.find((u) => u.id === uid)?.name ?? "—" : "nicht zugewiesen";
+
+          return {
+            ...prev,
+            tasks: prev.tasks.map((t) => {
+              if (t.id !== id) return t;
+              const next = { ...t, ...patch };
+              if (
+                (patch.status === "in_bearbeitung" || patch.status === "zur_pruefung") &&
+                !next.startedAt
+              ) {
+                next.startedAt = now;
+              }
+              if (
+                (patch.status === "erledigt" || patch.status === "abgeschlossen") &&
+                !next.completedAt
+              ) {
+                next.completedAt = now;
+                if (next.progress < 100) next.progress = 100;
+              }
+
+              const entries: TaskHistoryEntry[] = [...(t.history ?? [])];
+              if (
+                patch.assigneeId !== undefined &&
+                patch.assigneeId !== t.assigneeId
+              ) {
+                entries.push({
+                  id: uid(),
+                  at: now,
+                  actorUserId: actorId,
+                  action: "Zuweisung geändert",
+                  detail: `${nameOf(t.assigneeId)} → ${nameOf(patch.assigneeId)}`,
+                });
+              }
+              if (patch.status && patch.status !== t.status) {
+                entries.push({
+                  id: uid(),
+                  at: now,
+                  actorUserId: actorId,
+                  action: "Status geändert",
+                  detail: `${taskStatusLabel[t.status] ?? t.status} → ${taskStatusLabel[patch.status] ?? patch.status}`,
+                });
+              }
+              if (patch.title != null && patch.title !== t.title) {
+                entries.push({
+                  id: uid(),
+                  at: now,
+                  actorUserId: actorId,
+                  action: "Titel geändert",
+                  detail: `${t.title} → ${patch.title}`,
+                });
+              }
+              if (
+                patch.priority != null &&
+                patch.priority !== t.priority
+              ) {
+                entries.push({
+                  id: uid(),
+                  at: now,
+                  actorUserId: actorId,
+                  action: "Priorität geändert",
+                  detail: `${t.priority} → ${patch.priority}`,
+                });
+              }
+              if (patch.dueDate != null && patch.dueDate !== t.dueDate) {
+                entries.push({
+                  id: uid(),
+                  at: now,
+                  actorUserId: actorId,
+                  action: "Fälligkeit geändert",
+                  detail: `${t.dueDate} → ${patch.dueDate}`,
+                });
+              }
+              if (patch.rejectReason && patch.rejectReason !== t.rejectReason) {
+                entries.push({
+                  id: uid(),
+                  at: now,
+                  actorUserId: actorId,
+                  action: "Abgelehnt",
+                  detail: patch.rejectReason,
+                });
+              }
+              if (
+                patch.timeSpentMinutes != null &&
+                patch.timeSpentMinutes !== t.timeSpentMinutes
+              ) {
+                entries.push({
+                  id: uid(),
+                  at: now,
+                  actorUserId: actorId,
+                  action: "Zeit dokumentiert",
+                  detail: `${patch.timeSpentMinutes} Min.`,
+                });
+              }
+
+              return { ...next, history: entries };
+            }),
+          };
+        });
         logActivity({
-          action: "Aufgabe aktualisiert",
+          action: "Auftrag aktualisiert",
           entityType: "task",
           entityId: id,
           detail: Object.keys(patch).join(", "),
@@ -759,60 +946,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           label: input.label.trim(),
           sortOrder,
         };
-        const modules: StructureNode[] = [
-          {
-            id: uid(),
-            projectId: input.projectId,
-            parentId: variantId,
-            type: "modul",
-            label: "Bezug",
-            moduleKind: "bezug",
-            sortOrder: 1,
-          },
-        ];
-        const scope = project?.supplyScope ?? "bezug";
-        if (scope === "bezug_schnittstelle") {
-          modules.push({
-            id: uid(),
-            projectId: input.projectId,
-            parentId: variantId,
-            type: "modul",
-            label: "Anbindung",
-            moduleKind: "schnittstelle",
-            sortOrder: 2,
-          });
-        }
-        if (scope === "komplettsitz") {
-          modules.push(
-            {
-              id: uid(),
-              projectId: input.projectId,
-              parentId: variantId,
-              type: "modul",
-              label: "Kunststoff",
-              moduleKind: "kunststoff",
-              sortOrder: 2,
-            },
-            {
-              id: uid(),
-              projectId: input.projectId,
-              parentId: variantId,
-              type: "modul",
-              label: "Schaum",
-              moduleKind: "schaum",
-              sortOrder: 3,
-            },
-            {
-              id: uid(),
-              projectId: input.projectId,
-              parentId: variantId,
-              type: "modul",
-              label: "Struktur / Metall",
-              moduleKind: "struktur",
-              sortOrder: 4,
-            },
-          );
-        }
+        const modules = modulesForScope(
+          input.projectId,
+          variantId,
+          project?.supplyScope ?? "bezug",
+        );
         mutate((prev) => ({
           ...prev,
           structureNodes: [...prev.structureNodes, variant, ...modules],
@@ -868,6 +1006,141 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           detail: created.label,
         });
         return created;
+      },
+      addConfiguredProject: (config) => {
+        const projectId = uid();
+        const code = config.code.trim().toUpperCase();
+        const name = config.name.trim() || `Programm ${code}`;
+        const customer = config.customer.trim() || "Kunde";
+        const equipment = [...new Set(config.equipment)];
+        const equipText =
+          equipment.length > 0
+            ? ` Ausstattung: ${equipment
+                .map((id) => {
+                  const map: Record<string, string> = {
+                    sitzheizung: "Sitzheizung",
+                    sitzlueftung: "Sitzlüftung",
+                    massage: "Massage",
+                    memory: "Memory",
+                    airbag: "Seitenairbag",
+                    lordose: "Lordosenstütze",
+                    durchlade: "Durchlade",
+                  };
+                  return map[id] ?? id;
+                })
+                .join(", ")}.`
+            : "";
+        const project: SeatHubState["projects"][0] = {
+          id: projectId,
+          code,
+          name,
+          customer,
+          status: "entwicklung",
+          ampel: "gelb",
+          locations: config.locations?.length
+            ? config.locations
+            : ["hannover"],
+          description:
+            (config.description?.trim() ||
+              `${supplyScopeLabel[config.supplyScope]} – Struktur aus Konfigurator.`) +
+            equipText,
+          supplyScope: config.supplyScope,
+          equipment,
+        };
+
+        const nodes: StructureNode[] = [];
+        config.rows.forEach((row, ri) => {
+          const rowId = uid();
+          nodes.push({
+            id: rowId,
+            projectId,
+            parentId: null,
+            type: "sitzreihe",
+            label: row.label.trim() || `${ri + 1}. Reihe`,
+            sortOrder: ri + 1,
+          });
+          row.seats.forEach((seat, si) => {
+            const seatId = uid();
+            const seatLabel = seatDisplayLabel(seat);
+            const sideHint =
+              seat.sideMode === "lr"
+                ? " (L/R optional)"
+                : seat.sideMode === "mitte"
+                  ? " (Mitte)"
+                  : "";
+            nodes.push({
+              id: seatId,
+              projectId,
+              parentId: rowId,
+              type: "sitzvariante",
+              label: `${seatLabel}${sideHint}`,
+              sortOrder: si + 1,
+            });
+            const modules = modulesForScope(projectId, seatId, config.supplyScope);
+            nodes.push(...modules);
+            const bezugModul = modules.find((m) => m.moduleKind === "bezug")!;
+            const covers =
+              seat.covers.map((c) => c.trim()).filter(Boolean).length > 0
+                ? seat.covers.map((c) => c.trim()).filter(Boolean)
+                : ["Leder"];
+            covers.forEach((cover, ci) => {
+              nodes.push({
+                id: uid(),
+                projectId,
+                parentId: bezugModul.id,
+                type: "bezugvariante",
+                label: cover,
+                sortOrder: ci + 1,
+              });
+            });
+          });
+        });
+
+        mutate((prev) => ({
+          ...prev,
+          projects: [project, ...prev.projects],
+          structureNodes: [...prev.structureNodes, ...nodes],
+        }));
+        logActivity({
+          action: "Programm angelegt",
+          entityType: "project",
+          entityId: projectId,
+          detail: `${customer} · ${code} · ${config.rows.length} Reihen${
+            config.templateId ? ` · Vorlage ${config.templateId}` : ""
+          }`,
+        });
+        return project;
+      },
+      saveProgramTemplate: (tpl) => {
+        const created: ProgramTemplate = {
+          ...tpl,
+          id: tpl.id ?? uid(),
+          name: tpl.name.trim(),
+          description: tpl.description.trim(),
+          custom: true,
+          rows: structuredClone(tpl.rows),
+          equipment: [...tpl.equipment],
+        };
+        mutate((prev) => ({
+          ...prev,
+          programTemplates: [
+            created,
+            ...(prev.programTemplates ?? []).filter((t) => t.id !== created.id),
+          ],
+        }));
+        logActivity({
+          action: "Programm-Vorlage gespeichert",
+          entityType: "template",
+          entityId: created.id,
+          detail: created.name,
+        });
+        return created;
+      },
+      deleteProgramTemplate: (id) => {
+        mutate((prev) => ({
+          ...prev,
+          programTemplates: (prev.programTemplates ?? []).filter((t) => t.id !== id),
+        }));
       },
       addLeftRightPair: (input) => {
         const masterId = uid();

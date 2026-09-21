@@ -22,7 +22,7 @@ import {
 } from "@/lib/labels";
 import { partReleaseState, projectReleaseProgress } from "@/lib/progress";
 import { useStore } from "@/lib/store";
-import { supplyScopeHint, supplyScopeLabel } from "@/lib/structure";
+import { supplyScopeHint, supplyScopeLabel, equipmentLabels } from "@/lib/structure";
 import type { ModuleKind } from "@/lib/types";
 
 export default function ProjectDetailPage() {
@@ -101,6 +101,9 @@ export default function ProjectDetailPage() {
         <StatusPill tone="ok">
           Freigabe {progress.percent} % ({progress.released}/{progress.total})
         </StatusPill>
+        {equipmentLabels(project.equipment).map((label) => (
+          <StatusPill key={label}>{label}</StatusPill>
+        ))}
       </div>
 
       <p className="mb-5 max-w-3xl text-sm text-[var(--ink-muted)]">

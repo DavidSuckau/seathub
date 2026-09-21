@@ -137,9 +137,64 @@ export interface Project {
    * - komplettsitz: Bezug + eigene Struktur/Kunststoff/Metall-Bauteile
    */
   supplyScope: SupplyScope;
+  /**
+   * Ausstattung mit Bezug auf Bezug/Schaum/Anbindung
+   * (z. B. Sitzheizung, Lüftung, Massage)
+   */
+  equipment?: string[];
 }
 
 export type SupplyScope = "bezug" | "bezug_schnittstelle" | "komplettsitz";
+
+/** Konfiguration für den Programm-Anlege-Assistenten */
+export interface ProgramSeatConfig {
+  /** Sitzart / Basisname, z. B. Sportsitz */
+  label: string;
+  /** Bezugmaterialien unter diesem Design */
+  covers: string[];
+  /**
+   * Design-/Ausstattungsmerkmale dieser Variante (mit Airbag, Design A …).
+   * Das ist die Hauptachse – nicht Links/Rechts.
+   */
+  designTags?: string[];
+  /**
+   * Seitenanlage für spätere Bauteile:
+   * einzeln = eine TN, mitte = Bank, lr = optional später L/R
+   */
+  sideMode?: "einzeln" | "mitte" | "lr";
+}
+
+export interface ProgramRowConfig {
+  label: string;
+  seats: ProgramSeatConfig[];
+}
+
+/** Gespeicherte / Archiv-Vorlage für die Programm-Anlage */
+export interface ProgramTemplate {
+  id: string;
+  name: string;
+  description: string;
+  customerHint?: string;
+  supplyScope: SupplyScope;
+  equipment: string[];
+  rows: ProgramRowConfig[];
+  /** true = vom Nutzer ins Archiv gelegt */
+  custom?: boolean;
+}
+
+export interface ProgramCreateConfig {
+  code: string;
+  name: string;
+  customer: string;
+  description?: string;
+  supplyScope: SupplyScope;
+  locations?: LocationId[];
+  /** Programmweit (zusätzlich zu Design-Tags an Sitzarten) */
+  equipment: string[];
+  rows: ProgramRowConfig[];
+  /** Welche Vorlage genutzt wurde */
+  templateId?: string;
+}
 
 /** Flexible Projektstruktur – Tiefe und Labels können pro Programm unterschiedlich sein */
 export type StructureNodeType = "sitzreihe" | "sitzvariante" | "bezugvariante" | "modul";
@@ -312,6 +367,17 @@ export interface Task {
   completedAt?: string;
   /** Dokumentierte Bearbeitungszeit in Minuten (bei Erledigung Pflicht) */
   timeSpentMinutes?: number;
+  /** Chronik: Zuweisung, Status, Titel – wer hat was geändert */
+  history?: TaskHistoryEntry[];
+}
+
+/** Chronik-Eintrag am Auftrag (analog LOP) */
+export interface TaskHistoryEntry {
+  id: string;
+  at: string;
+  actorUserId: string;
+  action: string;
+  detail?: string;
 }
 
 export interface LopStep {
@@ -402,4 +468,6 @@ export interface SeatHubState {
   approvals: Approval[];
   substitutions: Substitution[];
   activityLog: Activity[];
+  /** Eigene Programm-Vorlagen (Archiv), zusätzlich zu den Built-ins */
+  programTemplates?: ProgramTemplate[];
 }

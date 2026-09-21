@@ -1,7 +1,7 @@
 import { createSeedState } from "./seed";
-import type { Lop, LopHistoryEntry, SeatHubState } from "./types";
+import type { Lop, LopHistoryEntry, SeatHubState, Task } from "./types";
 
-export const STORAGE_KEY = "seathub-prototype-v14";
+export const STORAGE_KEY = "seathub-prototype-v16";
 
 function historyFromLegacy(lop: Lop): LopHistoryEntry[] {
   if (lop.history?.length) return lop.history;
@@ -24,14 +24,36 @@ function historyFromLegacy(lop: Lop): LopHistoryEntry[] {
   ];
 }
 
+function taskHistoryFromLegacy(task: Task): NonNullable<Task["history"]> {
+  if (task.history?.length) return task.history;
+  return [
+    {
+      id: `created-${task.id}`,
+      at: task.createdAt,
+      actorUserId: task.createdByUserId ?? "",
+      action: "Auftrag angelegt",
+      detail: task.title,
+    },
+  ];
+}
+
 function normalize(state: SeatHubState): SeatHubState {
   return {
     ...state,
+    projects: (state.projects ?? []).map((p) => ({
+      ...p,
+      equipment: p.equipment ?? [],
+    })),
+    programTemplates: state.programTemplates ?? [],
     lops: state.lops.map((l) => ({
       ...l,
       photos: l.photos ?? [],
       history: historyFromLegacy(l),
       steps: undefined,
+    })),
+    tasks: (state.tasks ?? []).map((t) => ({
+      ...t,
+      history: taskHistoryFromLegacy(t),
     })),
   };
 }
