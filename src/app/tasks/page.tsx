@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AmpelBadge,
   Button,
+  FilterChip,
   PageHeader,
   Panel,
   StatusPill,
@@ -103,7 +104,7 @@ export default function TasksPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-1">
         {(
           [
             { id: "meine" as const, label: "Meine" },
@@ -113,28 +114,23 @@ export default function TasksPage() {
             ...(isManager ? [{ id: "alle" as const, label: "Alle" }] : []),
           ] as { id: TaskScope; label: string }[]
         ).map((opt) => (
-          <button
+          <FilterChip
             key={opt.id}
-            type="button"
+            active={scope === opt.id}
             onClick={() => setScope(opt.id)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-              scope === opt.id
-                ? "bg-[var(--accent)] text-white"
-                : "border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)]"
-            }`}
           >
             {opt.label}
-          </button>
+          </FilterChip>
         ))}
       </div>
 
       {scope === "meine" ? (
-        <div className="mb-4 rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">
-          Du siehst nur Aufträge, die <strong>dir zugeordnet</strong> sind.
+        <div className="mb-3 rounded-md border border-[var(--accent)]/15 bg-[var(--accent-soft)]/60 px-3 py-2 text-xs text-[var(--accent)]">
+          Nur Aufträge, die <strong>dir zugeordnet</strong> sind.
         </div>
       ) : scope === "abteilung" ? (
-        <div className="mb-4 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--ink-muted)]">
-          Abteilungsblick – inklusive Zuweisungen offen. Deine persönlichen Aufträge unter{" "}
+        <div className="mb-3 rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--ink-muted)]">
+          Abteilungsblick. Persönliche Aufträge unter{" "}
           <button
             type="button"
             className="font-medium text-[var(--accent)] underline"
@@ -150,7 +146,7 @@ export default function TasksPage() {
         <CreateOrderWizard onCancel={() => setShowForm(false)} />
       ) : null}
 
-      <div className="mb-3">
+      <div className="mb-2">
         <ModuleKindFilter
           value={artFilter}
           onChange={setArtFilter}
@@ -158,44 +154,30 @@ export default function TasksPage() {
         />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button
-          type="button"
+      <div className="mb-4 flex flex-wrap items-center gap-1">
+        <FilterChip
+          active={statusFilter === "alle"}
           onClick={() => setStatusFilter("alle")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            statusFilter === "alle"
-              ? "bg-[var(--accent)] text-white"
-              : "border border-[var(--line)] bg-[var(--surface)]"
-          }`}
         >
           Alle Status
-        </button>
+        </FilterChip>
         {(scope === "abteilung" || scope === "alle") && waitingCount > 0 ? (
-          <button
-            type="button"
+          <FilterChip
+            active={statusFilter === "zuweisung"}
+            tone="warn"
             onClick={() => setStatusFilter("zuweisung")}
-            className={`rounded-md px-3 py-1.5 text-sm ${
-              statusFilter === "zuweisung"
-                ? "bg-[var(--warn)] text-white"
-                : "border border-[var(--line)] bg-[var(--surface)]"
-            }`}
           >
             Zuweisung offen ({waitingCount})
-          </button>
+          </FilterChip>
         ) : null}
         {statuses.slice(0, 6).map((s) => (
-          <button
+          <FilterChip
             key={s}
-            type="button"
+            active={statusFilter === s}
             onClick={() => setStatusFilter(s)}
-            className={`rounded-md px-3 py-1.5 text-sm ${
-              statusFilter === s
-                ? "bg-[var(--accent)] text-white"
-                : "border border-[var(--line)] bg-[var(--surface)]"
-            }`}
           >
             {taskStatusLabel[s]}
-          </button>
+          </FilterChip>
         ))}
       </div>
 

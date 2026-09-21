@@ -83,23 +83,23 @@ export const createOrderTileTypes: TaskType[] = [
 
 export const orderTypeTileMeta: Record<
   string,
-  { shortLabel: string; icon: string; hint: string }
+  { shortLabel: string; hint: string }
 > = {
-  cad: { shortLabel: "CAD", icon: "CAD", hint: "Zeichnung" },
-  zuschnittauftrag: { shortLabel: "Zuschnitt", icon: "ZS", hint: "Material zuschneiden" },
-  naehauftrag: { shortLabel: "Nähen", icon: "NÄ", hint: "Näherei" },
-  bezugsentwicklung: { shortLabel: "Bezug", icon: "BE", hint: "Bezugsentwicklung" },
-  entwicklungsschleife: { shortLabel: "Schleife", icon: "ES", hint: "Neuer Stand" },
-  polsterauftrag: { shortLabel: "Polster", icon: "PO", hint: "Polsterei" },
-  pruefung: { shortLabel: "Prüfung", icon: "PR", hint: "Prüfauftrag" },
-  schnittentwicklung: { shortLabel: "Schnitt", icon: "SC", hint: "Schnittentwicklung" },
-  musterbau: { shortLabel: "Musterbau", icon: "MU", hint: "Physisches Muster" },
-  dokumentation: { shortLabel: "Doku", icon: "DO", hint: "Dokumentation" },
-  aenderung: { shortLabel: "Änderung", icon: "ÄN", hint: "Änderungsauftrag" },
-  materialbestellung: { shortLabel: "Material", icon: "MA", hint: "Bestellung" },
-  reparatur: { shortLabel: "Reparatur", icon: "RE", hint: "Reparatur" },
-  support: { shortLabel: "Support", icon: "SU", hint: "Support" },
-  extern: { shortLabel: "Extern", icon: "EX", hint: "Externer Dienstleister" },
+  cad: { shortLabel: "CAD", hint: "Zeichnung / 3D" },
+  zuschnittauftrag: { shortLabel: "Zuschnitt", hint: "Material zuschneiden" },
+  naehauftrag: { shortLabel: "Nähen", hint: "Nähmaschine / Näherei" },
+  bezugsentwicklung: { shortLabel: "Bezug", hint: "Bezugsentwicklung" },
+  entwicklungsschleife: { shortLabel: "Schleife", hint: "Neuer Stand" },
+  polsterauftrag: { shortLabel: "Polster", hint: "Polsterei am Sitz" },
+  pruefung: { shortLabel: "Prüfung", hint: "Prüfauftrag" },
+  schnittentwicklung: { shortLabel: "Schnitt", hint: "Schnittmuster" },
+  musterbau: { shortLabel: "Musterbau", hint: "Physisches Muster" },
+  dokumentation: { shortLabel: "Doku", hint: "Dokumentation" },
+  aenderung: { shortLabel: "Änderung", hint: "Änderungsauftrag" },
+  materialbestellung: { shortLabel: "Material", hint: "Bestellung" },
+  reparatur: { shortLabel: "Reparatur", hint: "Reparatur" },
+  support: { shortLabel: "Support", hint: "Support" },
+  extern: { shortLabel: "Extern", hint: "Externer Dienstleister" },
 };
 
 export const partKindLabel: Record<string, string> = {

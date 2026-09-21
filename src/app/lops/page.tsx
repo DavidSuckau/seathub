@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Field,
+  FilterChip,
   PageHeader,
   Panel,
   StatusPill,
@@ -264,18 +265,13 @@ export default function LopsPage() {
         </Panel>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button
-          type="button"
+      <div className="mb-4 flex flex-wrap items-center gap-1">
+        <FilterChip
+          active={sourceFilter === "alle"}
           onClick={() => setSourceFilter("alle")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            sourceFilter === "alle"
-              ? "bg-[var(--accent)] text-white"
-              : "border border-[var(--line)] bg-[var(--surface)]"
-          }`}
         >
           Alle Quellen
-        </button>
+        </FilterChip>
       </div>
 
       <Panel>

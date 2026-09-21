@@ -23,7 +23,7 @@ const ids = {
 
 export function createSeedState(): SeatHubState {
   return {
-    version: 12,
+    version: 14,
     currentUserId: ids.anna,
     demoRole: "mitarbeiter",
     departments: [
@@ -44,7 +44,7 @@ export function createSeedState(): SeatHubState {
     users: [
       {
         id: ids.frank,
-        name: "Frank Weisheit",
+        name: "Tobias Kronberg",
         roleLabel: "Komplettsitzleiter",
         departmentId: "trim-engineering",
         location: "hannover",
@@ -57,7 +57,7 @@ export function createSeedState(): SeatHubState {
       },
       {
         id: ids.katharina,
-        name: "Katharina Beicht",
+        name: "Miriam Eller",
         roleLabel: "Leitung Trim Engineering",
         departmentId: "trim-engineering",
         location: "hannover",
@@ -1785,7 +1785,7 @@ export function createSeedState(): SeatHubState {
         dueDate: "2026-09-28",
         progress: 0,
         description:
-          "Frank: Für W 990 Sportsitz Alcantara Links brauchen wir eine neue Entwicklungsschleife nach LOP. Engineering bitte zuweisen.",
+          "Tobias: Für W 990 Sportsitz Alcantara Links brauchen wir eine neue Entwicklungsschleife nach LOP. Engineering bitte zuweisen.",
         createdAt: "2026-09-18T08:00:00.000Z",
         risk: "orange",
       },

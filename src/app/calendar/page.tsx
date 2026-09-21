@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Button, PageHeader, Panel, StatusPill } from "@/components/ui";
+import { Button, FilterChip, PageHeader, Panel, StatusPill } from "@/components/ui";
 import {
   CALENDAR_TODAY,
   buildMonthCells,
@@ -92,43 +92,22 @@ export default function CalendarPage() {
         description={`${scopeLabel} – Fälligkeiten von Aufträgen und LOPs.`}
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setScope("meine")}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-            scope === "meine"
-              ? "bg-[var(--accent)] text-white"
-              : "border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)]"
-          }`}
-        >
+      <div className="mb-4 flex flex-wrap items-center gap-1">
+        <FilterChip active={scope === "meine"} onClick={() => setScope("meine")}>
           Meine Termine
-        </button>
+        </FilterChip>
         {deptId ? (
-          <button
-            type="button"
+          <FilterChip
+            active={scope === "abteilung"}
             onClick={() => setScope("abteilung")}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-              scope === "abteilung"
-                ? "bg-[var(--accent)] text-white"
-                : "border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)]"
-            }`}
           >
             Meine Abteilung
-          </button>
+          </FilterChip>
         ) : null}
         {canSeeTeam || state.demoRole === "manager" ? (
-          <button
-            type="button"
-            onClick={() => setScope("alle")}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-              scope === "alle"
-                ? "bg-[var(--accent)] text-white"
-                : "border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)]"
-            }`}
-          >
+          <FilterChip active={scope === "alle"} onClick={() => setScope("alle")}>
             Alle
-          </button>
+          </FilterChip>
         ) : null}
       </div>
 

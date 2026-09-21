@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
+import { OrderTypeIcon } from "@/components/OrderTypeIcons";
 import { taskTypeLabel } from "@/lib/labels";
 import {
   createOrderTileTypes,
@@ -164,14 +165,14 @@ export function CreateOrderWizard({
                 }`}
               >
                 <span
-                  className={`flex h-12 w-12 items-center justify-center rounded-[var(--radius)] text-lg font-bold tracking-tight ${
+                  className={`flex h-14 w-14 items-center justify-center rounded-[var(--radius)] ${
                     selected
                       ? "bg-[var(--accent)] text-white"
                       : "bg-[var(--bg-elevated)] text-[var(--accent)]"
                   }`}
                   aria-hidden
                 >
-                  {meta.icon}
+                  <OrderTypeIcon type={t} />
                 </span>
                 <span>
                   <span className="block text-sm font-semibold text-[var(--ink)]">

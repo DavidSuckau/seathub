@@ -132,6 +132,37 @@ export function Button({
   );
 }
 
+/** Kompakte Filter-Chips (Scope, Art, Status) */
+export function FilterChip({
+  children,
+  active,
+  onClick,
+  tone = "accent",
+}: {
+  children: React.ReactNode;
+  active?: boolean;
+  onClick?: () => void;
+  tone?: "accent" | "warn";
+}) {
+  const activeCls =
+    tone === "warn"
+      ? "border-transparent bg-[var(--warn)] text-white"
+      : "border-transparent bg-[var(--accent)] text-white";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium leading-tight tracking-wide transition ${
+        active
+          ? activeCls
+          : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] hover:border-[var(--accent)] hover:text-[var(--ink)]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function Field({
   label,
   children,

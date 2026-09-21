@@ -1,5 +1,6 @@
 "use client";
 
+import { FilterChip } from "@/components/ui";
 import { moduleKindLabel } from "@/lib/structure";
 import type { ModuleKind, Part, StructureNode } from "@/lib/types";
 
@@ -36,7 +37,7 @@ export function partMatchesArt(part: Part, art: ArtFilter): boolean {
 
 export function nodeMatchesArt(node: StructureNode, art: ArtFilter): boolean {
   if (art === "alle") return true;
-  if (node.type !== "modul") return true; // Reihen/Sitzarten immer sichtbar, Inhalt gefiltert
+  if (node.type !== "modul") return true;
   if (!node.moduleKind) return false;
   if (node.moduleKind === art) return true;
   if (art === "metall" && node.moduleKind === "struktur") return true;
@@ -51,7 +52,6 @@ export function ModuleKindFilter({
 }: {
   value: ArtFilter;
   onChange: (v: ArtFilter) => void;
-  /** Nur Optionen anzeigen, die in den Daten vorkommen (+ Alle) */
   available?: ModuleKind[];
 }) {
   const options = ART_FILTER_OPTIONS.filter((o) => {
@@ -64,23 +64,12 @@ export function ModuleKindFilter({
   });
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      <span className="mr-1 self-center text-xs font-medium text-[var(--ink-subtle)]">
-        Art:
-      </span>
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="mr-0.5 text-[11px] font-medium text-[var(--ink-subtle)]">Art</span>
       {options.map((o) => (
-        <button
-          key={o}
-          type="button"
-          onClick={() => onChange(o)}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-            value === o
-              ? "bg-[var(--accent)] text-white"
-              : "border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] hover:border-[var(--accent)]"
-          }`}
-        >
+        <FilterChip key={o} active={value === o} onClick={() => onChange(o)}>
           {artFilterLabel(o)}
-        </button>
+        </FilterChip>
       ))}
     </div>
   );
