@@ -5,7 +5,7 @@ import type { NextConfig } from "next";
  * Lokal und `next dev` ohne basePath.
  */
 const isGhPages = process.env.GITHUB_PAGES === "true";
-const repoName = process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "SeatHub";
+const repoName = process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "seathub";
 
 const nextConfig: NextConfig = {
   output: "export",
