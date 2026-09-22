@@ -142,7 +142,7 @@ export default function TaskDetailPage() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div className="w-full">
       <p className="mb-3">
         <Link href="/tasks" className="text-sm font-medium text-[var(--accent)]">
           ← Aufträge
@@ -205,203 +205,211 @@ export default function TaskDetailPage() {
         </div>
       ) : null}
 
-      {!done && !waiting ? (
-        <div className="mb-6">
-          <NextAction
-            description={nextChecklist ?? taskTypeLabel[task.type]}
-            primaryLabel={
-              task.status === "offen" ? "Arbeit starten" : "Erledigen"
-            }
-            onPrimary={() => {
-              if (task.status === "offen") {
-                updateTask(task.id, {
-                  status: "in_bearbeitung",
-                  startedAt: task.startedAt ?? new Date().toISOString(),
-                });
-              } else {
-                setShowComplete(true);
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.75fr)] lg:items-start">
+        <div className="min-w-0 space-y-6">
+          {!done && !waiting ? (
+            <NextAction
+              description={nextChecklist ?? taskTypeLabel[task.type]}
+              primaryLabel={
+                task.status === "offen" ? "Arbeit starten" : "Erledigen"
               }
-            }}
-          />
-        </div>
-      ) : null}
-
-      {showComplete ? (
-        <CompleteTaskForm
-          task={task}
-          onConfirm={completeWithTime}
-          onCancel={() => setShowComplete(false)}
-        />
-      ) : null}
-
-      {(task.checklist?.length ?? 0) > 0 ? (
-        <section className="mb-6">
-          <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">
-            Fortschritt
-          </h2>
-          <ul className="space-y-2">
-            {task.checklist!.map((c) => (
-              <li key={c.id}>
-                <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
-                    checked={c.done}
-                    onChange={() => toggleTaskChecklist(task.id, c.id)}
-                    disabled={done}
-                  />
-                  <span
-                    className={
-                      c.done
-                        ? "text-[var(--ink-subtle)] line-through"
-                        : "text-[var(--ink)]"
-                    }
-                  >
-                    {c.label}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {flow && flowPath.length > 0 ? (
-        <section className="mb-6">
-          <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">Prozess</h2>
-          <ol className="space-y-1.5">
-            {flowPath
-              .filter((n) => n.kind !== "start")
-              .map((n) => {
-                const current = n.id === task.flowNodeId;
-                const currentIdx = flowPath.findIndex(
-                  (x) => x.id === task.flowNodeId,
-                );
-                const nodeIdx = flowPath.findIndex((x) => x.id === n.id);
-                const past = currentIdx >= 0 && nodeIdx < currentIdx;
-                return (
-                  <li
-                    key={n.id}
-                    className={`flex items-center gap-2 text-sm ${
-                      current
-                        ? "font-semibold text-[var(--accent)]"
-                        : past
-                          ? "text-[var(--ok)]"
-                          : "text-[var(--ink-muted)]"
-                    }`}
-                  >
-                    <span className="w-4 text-center">
-                      {past ? "✓" : current ? "●" : "○"}
-                    </span>
-                    {n.label}
-                  </li>
-                );
-              })}
-          </ol>
-        </section>
-      ) : null}
-
-      {waiting ? (
-        <Panel title="Zuweisen" className="mb-6">
-          <p className="mb-3 text-sm text-[var(--ink-muted)]">
-            SeatHub schlägt vor – du entscheidest.
-          </p>
-          <ul className="space-y-2">
-            {agentSuggestions.map((s, i) => (
-              <li
-                key={s.user.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] px-3 py-2.5"
-              >
-                <div>
-                  <p className="text-sm font-medium">
-                    {i + 1}. {s.user.name}
-                  </p>
-                  <p className="text-xs text-[var(--ink-muted)]">
-                    {s.reasons.slice(0, 2).join(" · ")}
-                  </p>
-                </div>
-                <Button onClick={() => assignTo(s.user.id)}>Zuordnen</Button>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      ) : null}
-
-      <details className="mb-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
-        <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">
-          Details & Status
-        </summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label="Status">
-            <select
-              className={inputClass}
-              value={task.status}
-              onChange={(e) => onStatusChange(e.target.value as TaskStatus)}
-            >
-              {Object.entries(taskStatusLabel).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Zugewiesen">
-            <select
-              className={inputClass}
-              value={task.assigneeId ?? ""}
-              onChange={(e) => {
-                const id = e.target.value;
-                updateTask(task.id, {
-                  assigneeId: id || undefined,
-                  needsAssignment: !id,
-                });
+              onPrimary={() => {
+                if (task.status === "offen") {
+                  updateTask(task.id, {
+                    status: "in_bearbeitung",
+                    startedAt: task.startedAt ?? new Date().toISOString(),
+                  });
+                } else {
+                  setShowComplete(true);
+                }
               }}
-            >
-              <option value="">— offen —</option>
-              {candidates.map(({ user }) => (
-                <option key={user.id} value={user.id}>
-                  {user.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-        {task.description ? (
-          <p className="mt-3 text-sm text-[var(--ink-muted)]">{task.description}</p>
-        ) : null}
-      </details>
+            />
+          ) : null}
 
-      {(task.history?.length ?? 0) > 0 ? (
-        <details className="mb-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
-          <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">
-            Historie
-          </summary>
-          <ul className="mt-3 space-y-2 text-sm">
-            {[...(task.history ?? [])]
-              .reverse()
-              .slice(0, 12)
-              .map((h) => (
-                <li key={h.id} className="text-[var(--ink-muted)]">
-                  <span className="text-[var(--ink-subtle)]">
-                    {formatDateTime(h.at)}
-                  </span>{" "}
-                  · {h.action}
-                  {h.detail ? ` – ${h.detail}` : ""}
-                </li>
-              ))}
-          </ul>
-        </details>
-      ) : null}
+          {showComplete ? (
+            <CompleteTaskForm
+              task={task}
+              onConfirm={completeWithTime}
+              onCancel={() => setShowComplete(false)}
+            />
+          ) : null}
 
-      <details className="mb-6 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
-        <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">
-          Profile & LOPs
-        </summary>
-        <div className="mt-3 space-y-4">
-          <TaskProfilePanel task={task} />
-          <TaskLopPanel task={task} />
+          {(task.checklist?.length ?? 0) > 0 ? (
+            <section>
+              <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">
+                Fortschritt
+              </h2>
+              <ul className="space-y-2">
+                {task.checklist!.map((c) => (
+                  <li key={c.id}>
+                    <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                        checked={c.done}
+                        onChange={() => toggleTaskChecklist(task.id, c.id)}
+                        disabled={done}
+                      />
+                      <span
+                        className={
+                          c.done
+                            ? "text-[var(--ink-subtle)] line-through"
+                            : "text-[var(--ink)]"
+                        }
+                      >
+                        {c.label}
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {waiting ? (
+            <Panel title="Zuweisen">
+              <p className="mb-3 text-sm text-[var(--ink-muted)]">
+                SeatHub schlägt vor – du entscheidest.
+              </p>
+              <ul className="space-y-2">
+                {agentSuggestions.map((s, i) => (
+                  <li
+                    key={s.user.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] px-3 py-2.5"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        {i + 1}. {s.user.name}
+                      </p>
+                      <p className="text-xs text-[var(--ink-muted)]">
+                        {s.reasons.slice(0, 2).join(" · ")}
+                      </p>
+                    </div>
+                    <Button onClick={() => assignTo(s.user.id)}>Zuordnen</Button>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          ) : null}
+
+          <details className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+            <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">
+              Details & Status
+            </summary>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label="Status">
+                <select
+                  className={inputClass}
+                  value={task.status}
+                  onChange={(e) => onStatusChange(e.target.value as TaskStatus)}
+                >
+                  {Object.entries(taskStatusLabel).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Zugewiesen">
+                <select
+                  className={inputClass}
+                  value={task.assigneeId ?? ""}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    updateTask(task.id, {
+                      assigneeId: id || undefined,
+                      needsAssignment: !id,
+                    });
+                  }}
+                >
+                  <option value="">— offen —</option>
+                  {candidates.map(({ user }) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            {task.description ? (
+              <p className="mt-3 text-sm text-[var(--ink-muted)]">
+                {task.description}
+              </p>
+            ) : null}
+          </details>
+
+          {(task.history?.length ?? 0) > 0 ? (
+            <details className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">
+                Historie
+              </summary>
+              <ul className="mt-3 space-y-2 text-sm">
+                {[...(task.history ?? [])]
+                  .reverse()
+                  .slice(0, 12)
+                  .map((h) => (
+                    <li key={h.id} className="text-[var(--ink-muted)]">
+                      <span className="text-[var(--ink-subtle)]">
+                        {formatDateTime(h.at)}
+                      </span>{" "}
+                      · {h.action}
+                      {h.detail ? ` – ${h.detail}` : ""}
+                    </li>
+                  ))}
+              </ul>
+            </details>
+          ) : null}
+
+          <details className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+            <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">
+              Profile & LOPs
+            </summary>
+            <div className="mt-3 space-y-4">
+              <TaskProfilePanel task={task} />
+              <TaskLopPanel task={task} />
+            </div>
+          </details>
         </div>
-      </details>
+
+        {flow && flowPath.length > 0 ? (
+          <aside className="rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] px-5 py-5 lg:sticky lg:top-24">
+            <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">
+              Prozess
+            </h2>
+            <ol className="space-y-2">
+              {flowPath
+                .filter((n) => n.kind !== "start")
+                .map((n) => {
+                  const current = n.id === task.flowNodeId;
+                  const currentIdx = flowPath.findIndex(
+                    (x) => x.id === task.flowNodeId,
+                  );
+                  const nodeIdx = flowPath.findIndex((x) => x.id === n.id);
+                  const past = currentIdx >= 0 && nodeIdx < currentIdx;
+                  return (
+                    <li
+                      key={n.id}
+                      className={`flex items-center gap-2 text-sm ${
+                        current
+                          ? "font-semibold text-[var(--accent)]"
+                          : past
+                            ? "text-[var(--ok)]"
+                            : "text-[var(--ink-muted)]"
+                      }`}
+                    >
+                      <span className="w-4 text-center">
+                        {past ? "✓" : current ? "●" : "○"}
+                      </span>
+                      {n.label}
+                    </li>
+                  );
+                })}
+            </ol>
+          </aside>
+        ) : (
+          <aside className="hidden lg:block" aria-hidden />
+        )}
+      </div>
     </div>
   );
 }

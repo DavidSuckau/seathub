@@ -58,7 +58,7 @@ export default function DashboardPage() {
   }, [lead, currentUser?.departmentId, state.tasks]);
 
   return (
-    <div className="max-w-2xl">
+    <div className="w-full">
       <header className="mb-8 animate-fade-up">
         <p className="text-sm text-[var(--ink-muted)]">Dein Arbeitstag</p>
         <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">

@@ -55,7 +55,7 @@ export default function ManagementPage() {
   });
 
   return (
-    <div className="max-w-2xl">
+    <div className="w-full">
       <PageHeader
         eyebrow="Management"
         title="Übersicht"
