@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { AddProfileForm } from "@/components/AddProfileForm";
+import { AssemblyAddButton } from "@/components/AssemblyAddButton";
 import { CreatePartOrderForm } from "@/components/CreatePartOrderForm";
 import { DevelopmentLoopForm } from "@/components/DevelopmentLoopForm";
 import {
-  LinkExistingProfileForm,
   ProfileUsagePanel,
   SharedImpactBanner,
 } from "@/components/LinkExistingProfileForm";
@@ -204,12 +203,7 @@ function PartDetailInner() {
         <div className="mb-6">
           <Panel
             title="Profile & Komponenten am Bezug"
-            action={
-              <div className="flex flex-wrap gap-2">
-                <AddProfileForm parent={part} />
-                <LinkExistingProfileForm assembly={part} />
-              </div>
-            }
+            action={<AssemblyAddButton parent={part} />}
           >
             <p className="mb-3 text-sm text-[var(--ink-muted)]">
               Profile haben eigene Teilenummern und eigene Stände. Ein Profil kann an mehreren

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { AddProfileForm } from "@/components/AddProfileForm";
+import { AssemblyAddButton } from "@/components/AssemblyAddButton";
 import { Field, Panel, StatusPill, inputClass } from "@/components/ui";
 import { useStore } from "@/lib/store";
 import type { Part, Task, TaskType } from "@/lib/types";
@@ -188,7 +188,7 @@ export function TaskProfilePanel({ task }: { task: Task }) {
               Noch keine Profile oder Komponenten an {parent.partNumber}.
             </p>
           )}
-          <AddProfileForm parent={parent} />
+          <AssemblyAddButton parent={parent} />
         </>
       ) : (
         <p className="text-sm text-[var(--ink-subtle)]">
