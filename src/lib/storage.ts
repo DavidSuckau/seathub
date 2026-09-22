@@ -1,7 +1,7 @@
 import { createSeedState } from "./seed";
 import type { Lop, LopHistoryEntry, SeatHubState, Task } from "./types";
 
-export const STORAGE_KEY = "seathub-prototype-v16";
+export const STORAGE_KEY = "seathub-prototype-v17";
 
 function historyFromLegacy(lop: Lop): LopHistoryEntry[] {
   if (lop.history?.length) return lop.history;
@@ -43,6 +43,8 @@ function normalize(state: SeatHubState): SeatHubState {
     projects: (state.projects ?? []).map((p) => ({
       ...p,
       equipment: p.equipment ?? [],
+      sopDate: p.sopDate,
+      includesHeadrest: p.includesHeadrest,
     })),
     programTemplates: state.programTemplates ?? [],
     lops: state.lops.map((l) => ({

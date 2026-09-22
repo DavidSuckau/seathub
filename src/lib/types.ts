@@ -142,26 +142,42 @@ export interface Project {
    * (z. B. Sitzheizung, Lüftung, Massage)
    */
   equipment?: string[];
+  /** SOP-Termin (Start of Production), Pflicht bei Neuanlage */
+  sopDate?: string;
+  /**
+   * true = Kopfstützen-Entwicklung gehört zum Programm-Auftrag
+   * false = ohne Kopfstützen-Entwicklung
+   */
+  includesHeadrest?: boolean;
 }
 
 export type SupplyScope = "bezug" | "bezug_schnittstelle" | "komplettsitz";
 
 /** Konfiguration für den Programm-Anlege-Assistenten */
+export type ArmrestHoleVariant = "mit_loch" | "ohne_loch";
+export type HeadrestScope = "mit" | "ohne";
+
 export interface ProgramSeatConfig {
   /** Sitzart / Basisname, z. B. Sportsitz */
   label: string;
   /** Bezugmaterialien unter diesem Design */
   covers: string[];
   /**
+   * Bezug-Varianten Armlehne: mit Loch / ohne Loch (können beide gewählt werden).
+   * Wird mit jedem Material zu eigenen Bezugvarianten kombiniert.
+   */
+  armrestHoles?: ArmrestHoleVariant[];
+  /**
    * Design-/Ausstattungsmerkmale dieser Variante (mit Airbag, Design A …).
-   * Das ist die Hauptachse – nicht Links/Rechts.
    */
   designTags?: string[];
   /**
-   * Seitenanlage für spätere Bauteile:
-   * einzeln = eine TN, mitte = Bank, lr = optional später L/R
+   * Links/Rechts-Frage:
+   * lr = eigene L- und R-Bezüge, einzeln = eine TN, mitte = Bank
    */
   sideMode?: "einzeln" | "mitte" | "lr";
+  /** Kopfstützen-Entwicklung für dieses Design */
+  headrest?: HeadrestScope;
 }
 
 export interface ProgramRowConfig {
@@ -178,6 +194,9 @@ export interface ProgramTemplate {
   supplyScope: SupplyScope;
   equipment: string[];
   rows: ProgramRowConfig[];
+  /** Vorschlag SOP relativ (nur Hinweistext) */
+  sopDateHint?: string;
+  includesHeadrest?: boolean;
   /** true = vom Nutzer ins Archiv gelegt */
   custom?: boolean;
 }
@@ -194,6 +213,10 @@ export interface ProgramCreateConfig {
   rows: ProgramRowConfig[];
   /** Welche Vorlage genutzt wurde */
   templateId?: string;
+  /** SOP-Termin (Pflicht) */
+  sopDate: string;
+  /** Programm inkl. Kopfstützen-Entwicklung */
+  includesHeadrest: boolean;
 }
 
 /** Flexible Projektstruktur – Tiefe und Labels können pro Programm unterschiedlich sein */

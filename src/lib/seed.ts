@@ -23,7 +23,7 @@ const ids = {
 
 export function createSeedState(): SeatHubState {
   return {
-    version: 16,
+    version: 17,
     currentUserId: ids.anna,
     demoRole: "mitarbeiter",
     departments: [
@@ -427,6 +427,8 @@ export function createSeedState(): SeatHubState {
         milestoneRisk: "Alcantara Sportsitz – Bezug/Kunststoff-Anbindung kritisch.",
         supplyScope: "komplettsitz",
         equipment: ["sitzheizung", "sitzlueftung", "memory"],
+        sopDate: "2027-06-15",
+        includesHeadrest: true,
       },
       {
         id: ids.pAudi,
@@ -442,6 +444,8 @@ export function createSeedState(): SeatHubState {
         milestoneRisk: "Mustertermin gefährdet – Schnittentwicklung hinter Plan, Freigabe offen.",
         supplyScope: "bezug_schnittstelle",
         equipment: ["sitzheizung", "airbag"],
+        sopDate: "2027-03-01",
+        includesHeadrest: true,
       },
       {
         id: ids.pMerc,
@@ -456,6 +460,8 @@ export function createSeedState(): SeatHubState {
         milestoneRisk: "Externe Schnittentwicklung verspätet.",
         supplyScope: "bezug_schnittstelle",
         equipment: ["sitzheizung"],
+        sopDate: "2027-09-30",
+        includesHeadrest: false,
       },
       {
         id: ids.pBmw,
@@ -470,6 +476,8 @@ export function createSeedState(): SeatHubState {
         milestoneRisk: "Materiallieferung offen – beobachten.",
         supplyScope: "bezug",
         equipment: [],
+        sopDate: "2026-12-01",
+        includesHeadrest: true,
       },
     ],
     structureNodes: [

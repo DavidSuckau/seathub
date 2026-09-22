@@ -97,6 +97,16 @@ export default function ProjectDetailPage() {
       <div className="mb-5 flex flex-wrap gap-2">
         <StatusPill tone="accent">{projectStatusLabel[project.status]}</StatusPill>
         <StatusPill tone="ok">{supplyScopeLabel[project.supplyScope]}</StatusPill>
+        {project.sopDate ? (
+          <StatusPill tone="accent">SOP {formatDate(project.sopDate)}</StatusPill>
+        ) : (
+          <StatusPill tone="warn">SOP fehlt</StatusPill>
+        )}
+        {project.includesHeadrest != null ? (
+          <StatusPill>
+            {project.includesHeadrest ? "mit Kopfstütze" : "ohne Kopfstütze"}
+          </StatusPill>
+        ) : null}
         <StatusPill>{parts.length} Bauteile</StatusPill>
         <StatusPill tone="ok">
           Freigabe {progress.percent} % ({progress.released}/{progress.total})

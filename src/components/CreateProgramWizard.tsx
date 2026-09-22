@@ -3,10 +3,13 @@
 import { useMemo, useState } from "react";
 import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
 import {
+  ARMREST_HOLE_OPTIONS,
   BUILTIN_PROGRAM_TEMPLATES,
   DESIGN_TAG_OPTIONS,
+  HEADREST_OPTIONS,
   SIDE_MODE_OPTIONS,
   countTemplateStats,
+  expandCoverLabels,
   seatDisplayLabel,
   templateToPartialConfig,
 } from "@/lib/program-templates";
@@ -15,8 +18,10 @@ import {
   supplyScopeHint,
   supplyScopeLabel,
 } from "@/lib/structure";
+import { formatDate } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type {
+  ArmrestHoleVariant,
   ProgramCreateConfig,
   ProgramRowConfig,
   ProgramSeatConfig,
@@ -36,20 +41,25 @@ function emptySeat(label = "Normalsitz"): ProgramSeatConfig {
     label,
     covers: ["Leder"],
     designTags: [],
-    sideMode: "einzeln",
+    sideMode: "lr",
+    armrestHoles: ["mit_loch", "ohne_loch"],
+    headrest: "mit",
   };
 }
 
-function toggleInList(list: string[], value: string): string[] {
+function toggleInList<T extends string>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
 export function CreateProgramWizard({
   onCancel,
   onCreated,
+  embedded = false,
 }: {
   onCancel?: () => void;
   onCreated?: (projectId: string) => void;
+  /** Ohne eigenen Panel-Rahmen (z. B. im Modal) */
+  embedded?: boolean;
 }) {
   const { state, addConfiguredProject, saveProgramTemplate, deleteProgramTemplate } =
     useStore();
@@ -61,6 +71,8 @@ export function CreateProgramWizard({
   const [description, setDescription] = useState("");
   const [supplyScope, setSupplyScope] = useState<SupplyScope>("bezug_schnittstelle");
   const [equipment, setEquipment] = useState<string[]>(["sitzheizung"]);
+  const [sopDate, setSopDate] = useState("");
+  const [includesHeadrest, setIncludesHeadrest] = useState(true);
   const [rows, setRows] = useState<ProgramRowConfig[]>([
     { label: "1. Reihe", seats: [emptySeat()] },
   ]);
@@ -80,9 +92,7 @@ export function CreateProgramWizard({
     setEquipment(partial.equipment);
     setRows(partial.rows);
     setDescription(partial.description ?? "");
-    if (tpl.customerHint && !CUSTOMERS.includes(customer)) {
-      /* keep customer */
-    }
+    setIncludesHeadrest(partial.includesHeadrest);
     setStep(1);
   }
 
@@ -108,15 +118,25 @@ export function CreateProgramWizard({
 
   function canNext(): boolean {
     if (step === 0) return false;
-    if (step === 1) return code.trim().length > 0 && customer.trim().length > 0;
+    if (step === 1)
+      return (
+        code.trim().length > 0 &&
+        customer.trim().length > 0 &&
+        sopDate.trim().length > 0
+      );
     if (step === 2) return rows.length > 0 && rows.every((r) => r.label.trim());
     if (step === 3)
       return rows.every(
         (r) =>
           r.seats.length > 0 &&
-          r.seats.every((s) => s.label.trim() && s.covers.length > 0),
+          r.seats.every(
+            (s) =>
+              s.label.trim() &&
+              s.covers.length > 0 &&
+              (s.armrestHoles?.length ?? 0) > 0,
+          ),
       );
-    return true;
+    return sopDate.trim().length > 0;
   }
 
   function submit() {
@@ -130,6 +150,8 @@ export function CreateProgramWizard({
       equipment,
       rows,
       templateId,
+      sopDate: sopDate.trim(),
+      includesHeadrest,
     };
     const project = addConfiguredProject(config);
     onCreated?.(project.id);
@@ -147,12 +169,13 @@ export function CreateProgramWizard({
       equipment,
       rows,
       customerHint: customer,
+      includesHeadrest,
     });
     setSaveAsName("");
   }
 
-  return (
-    <Panel title="Neues Programm anlegen" className="mb-6 animate-fade-up">
+  const body = (
+    <>
       <div className="mb-5 flex flex-wrap gap-2">
         {(
           [
@@ -183,8 +206,8 @@ export function CreateProgramWizard({
       {step === 0 ? (
         <div className="space-y-4">
           <p className="text-sm text-[var(--ink-muted)]">
-            Archiv: fertige Vorlagen laden – z. B. eine Reihe mit/ohne Airbag und
-            verschiedenen Designs. Die Hauptachse sind Designs, nicht Links/Rechts.
+            Archiv: Vorlagen mit Designs (Airbag), Armlehnenloch mit/ohne, L/R und
+            Kopfstützen-Umfang. SOP-Datum setzt du im nächsten Schritt.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             {archive.map((tpl) => {
@@ -256,8 +279,8 @@ export function CreateProgramWizard({
       {step === 1 ? (
         <div className="space-y-4">
           <p className="text-sm text-[var(--ink-muted)]">
-            Kunde, Programmcode und Lieferumfang.
-            {templateId ? " Vorlage ist geladen – du kannst alles noch anpassen." : null}
+            Kunde, Programmcode, <span className="font-medium text-[var(--ink)]">SOP-Datum</span>{" "}
+            (Pflicht) und ob Kopfstützen-Entwicklung zum Auftrag gehört.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Kunde">
@@ -289,6 +312,15 @@ export function CreateProgramWizard({
                 placeholder={`Programm ${code || "…"}`}
               />
             </Field>
+            <Field label="SOP-Datum *">
+              <input
+                type="date"
+                className={inputClass}
+                value={sopDate}
+                onChange={(e) => setSopDate(e.target.value)}
+                required
+              />
+            </Field>
             <Field label="Kurzbeschreibung">
               <input
                 className={inputClass}
@@ -298,6 +330,31 @@ export function CreateProgramWizard({
               />
             </Field>
           </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium text-[var(--ink)]">
+              Kopfstützen-Entwicklung (Programm)
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {HEADREST_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setIncludesHeadrest(opt.id === "mit")}
+                  className={`rounded-[var(--radius)] border px-3 py-3 text-left ${
+                    (includesHeadrest && opt.id === "mit") ||
+                    (!includesHeadrest && opt.id === "ohne")
+                      ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                      : "border-[var(--line)] bg-[var(--bg)]"
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-[var(--ink)]">{opt.label}</p>
+                  <p className="mt-1 text-xs text-[var(--ink-muted)]">{opt.hint}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <p className="mb-2 text-sm font-medium text-[var(--ink)]">Lieferumfang</p>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -322,14 +379,16 @@ export function CreateProgramWizard({
               ))}
             </div>
           </div>
+          {!sopDate ? (
+            <p className="text-xs text-[var(--warn)]">SOP-Datum ist Pflicht für jedes Programm.</p>
+          ) : null}
         </div>
       ) : null}
 
       {step === 2 ? (
         <div className="space-y-4">
           <p className="text-sm text-[var(--ink-muted)]">
-            Sitzreihen festlegen. Designs (mit/ohne Airbag …) kommen im nächsten Schritt –
-            pro Reihe, nicht als Links/Rechts.
+            Sitzreihen festlegen. Danach Designs inkl. Armlehnenloch, L/R und Kopfstütze.
           </p>
           <div className="flex flex-wrap gap-1.5">
             <span className="mr-1 self-center text-xs text-[var(--ink-subtle)]">Schnell:</span>
@@ -414,9 +473,8 @@ export function CreateProgramWizard({
       {step === 3 ? (
         <div className="space-y-5">
           <p className="text-sm text-[var(--ink-muted)]">
-            Pro Reihe eigene Designs anlegen (z. B. mit Airbag / ohne Airbag, Design A/B).
-            Darunter die Bezüge. Seitenanlage standardmäßig „Einzeln“ – L/R ist optional,
-            nicht Pflicht.
+            Pro Design: Material, Armlehnenloch (mit/ohne), Links &amp; Rechts, Kopfstütze.
+            Material × Armlehnenloch ergibt die Bezugvarianten.
           </p>
           {rows.map((row, ri) => (
             <div
@@ -433,10 +491,8 @@ export function CreateProgramWizard({
                         seats: [
                           ...row.seats,
                           {
-                            label: "Sportsitz",
-                            covers: ["Leder"],
+                            ...emptySeat("Sportsitz"),
                             designTags: ["mit_airbag", "design_a"],
-                            sideMode: "einzeln",
                           },
                         ],
                       })
@@ -451,10 +507,10 @@ export function CreateProgramWizard({
                         seats: [
                           ...row.seats,
                           {
-                            label: "Sportsitz",
+                            ...emptySeat("Sportsitz"),
                             covers: ["Leder", "Stoff"],
                             designTags: ["ohne_airbag", "design_b"],
-                            sideMode: "einzeln",
+                            armrestHoles: ["ohne_loch"],
                           },
                         ],
                       })
@@ -538,11 +594,11 @@ export function CreateProgramWizard({
                     </div>
 
                     <p className="mb-1.5 text-xs font-medium text-[var(--ink-muted)]">
-                      Seitenanlage (nicht die Hauptvariante)
+                      Links / Rechts
                     </p>
                     <div className="mb-3 flex flex-wrap gap-1.5">
                       {SIDE_MODE_OPTIONS.map((opt) => {
-                        const on = (seat.sideMode ?? "einzeln") === opt.id;
+                        const on = (seat.sideMode ?? "lr") === opt.id;
                         return (
                           <button
                             key={opt.id}
@@ -562,9 +618,33 @@ export function CreateProgramWizard({
                     </div>
 
                     <p className="mb-1.5 text-xs font-medium text-[var(--ink-muted)]">
-                      Bezugvarianten
+                      Kopfstütze (dieses Design)
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="mb-3 flex flex-wrap gap-1.5">
+                      {HEADREST_OPTIONS.map((opt) => {
+                        const on = (seat.headrest ?? "mit") === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            title={opt.hint}
+                            onClick={() => updateSeat(ri, si, { headrest: opt.id })}
+                            className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                              on
+                                ? "bg-[var(--accent)] text-white"
+                                : "border border-[var(--line)] text-[var(--ink-muted)]"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <p className="mb-1.5 text-xs font-medium text-[var(--ink-muted)]">
+                      Bezugmaterial
+                    </p>
+                    <div className="mb-3 flex flex-wrap gap-1.5">
                       {COVER_PRESETS.map((cover) => {
                         const on = seat.covers.includes(cover);
                         return (
@@ -587,6 +667,41 @@ export function CreateProgramWizard({
                         );
                       })}
                     </div>
+
+                    <p className="mb-1.5 text-xs font-medium text-[var(--ink-muted)]">
+                      Armlehnenloch (kann beides sein)
+                    </p>
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      {ARMREST_HOLE_OPTIONS.map((opt) => {
+                        const on = (seat.armrestHoles ?? []).includes(opt.id);
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            title={opt.hint}
+                            onClick={() => {
+                              const next = toggleInList(
+                                (seat.armrestHoles ?? []) as ArmrestHoleVariant[],
+                                opt.id,
+                              );
+                              updateSeat(ri, si, {
+                                armrestHoles: next.length ? next : [opt.id],
+                              });
+                            }}
+                            className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                              on
+                                ? "bg-[var(--accent)] text-white"
+                                : "border border-[var(--line)] text-[var(--ink-muted)]"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-[var(--ink-subtle)]">
+                      Ergibt: {expandCoverLabels(seat).join(" · ")}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -630,6 +745,12 @@ export function CreateProgramWizard({
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <StatusPill tone="ok">{supplyScopeLabel[supplyScope]}</StatusPill>
+              <StatusPill tone="accent">
+                SOP {sopDate ? formatDate(sopDate) : "— fehlt"}
+              </StatusPill>
+              <StatusPill>
+                {includesHeadrest ? "mit Kopfstütze" : "ohne Kopfstütze"}
+              </StatusPill>
               <StatusPill>
                 {summary.rows} Reihe{summary.rows === 1 ? "" : "n"}
               </StatusPill>
@@ -647,9 +768,9 @@ export function CreateProgramWizard({
                   <ul className="mt-1 space-y-0.5 pl-3">
                     {r.seats.map((s, i) => (
                       <li key={i}>
-                        {seatDisplayLabel(s)} · {s.covers.join(", ")} ·{" "}
-                        {SIDE_MODE_OPTIONS.find((o) => o.id === (s.sideMode ?? "einzeln"))
-                          ?.label ?? "Einzeln"}
+                        {seatDisplayLabel(s)} · {expandCoverLabels(s).join(", ")} ·{" "}
+                        {SIDE_MODE_OPTIONS.find((o) => o.id === (s.sideMode ?? "lr"))
+                          ?.label ?? "Links & Rechts"}
                       </li>
                     ))}
                   </ul>
@@ -703,6 +824,14 @@ export function CreateProgramWizard({
           </Button>
         ) : null}
       </div>
+    </>
+  );
+
+  if (embedded) return <div>{body}</div>;
+
+  return (
+    <Panel title="Neues Programm anlegen" className="mb-6 animate-fade-up">
+      {body}
     </Panel>
   );
 }

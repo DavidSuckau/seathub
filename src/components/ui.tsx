@@ -1,5 +1,6 @@
 import type { Ampel } from "@/lib/types";
 import { ampelLabel } from "@/lib/labels";
+import { useEffect } from "react";
 
 export function AmpelBadge({ ampel, showLabel = true }: { ampel: Ampel; showLabel?: boolean }) {
   return (
@@ -175,6 +176,69 @@ export function Field({
       <span className="font-medium text-[var(--ink-muted)]">{label}</span>
       {children}
     </label>
+  );
+}
+
+export function Modal({
+  title,
+  children,
+  onClose,
+  size = "lg",
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  size?: "md" | "lg" | "xl";
+}) {
+  const widths = {
+    md: "max-w-lg",
+    lg: "max-w-3xl",
+    xl: "max-w-5xl",
+  };
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
+      <button
+        type="button"
+        aria-label="Schließen"
+        className="fixed inset-0 bg-[var(--ink)]/40 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        className={`relative z-10 my-4 w-full ${widths[size]} animate-fade-up rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-md)]`}
+      >
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-5 py-3 rounded-t-[var(--radius-lg)]">
+          <h2 id="modal-title" className="text-[15px] font-semibold tracking-tight text-[var(--ink)]">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-sm text-[var(--ink-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--ink)]"
+            aria-label="Assistent schließen"
+          >
+            ✕
+          </button>
+        </header>
+        <div className="max-h-[min(80vh,720px)] overflow-y-auto p-5">{children}</div>
+      </div>
+    </div>
   );
 }
 

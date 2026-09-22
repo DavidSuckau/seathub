@@ -1,4 +1,5 @@
 import type {
+  ArmrestHoleVariant,
   ProgramCreateConfig,
   ProgramRowConfig,
   ProgramSeatConfig,
@@ -6,7 +7,7 @@ import type {
   SupplyScope,
 } from "./types";
 
-/** Design-Merkmale einer Sitzart – nicht L/R, sondern echte Varianten */
+/** Design-Merkmale einer Sitzart */
 export const DESIGN_TAG_OPTIONS = [
   { id: "mit_airbag", label: "mit Airbag" },
   { id: "ohne_airbag", label: "ohne Airbag" },
@@ -17,7 +18,42 @@ export const DESIGN_TAG_OPTIONS = [
   { id: "comfort", label: "Comfort" },
 ] as const;
 
+export const ARMREST_HOLE_OPTIONS: {
+  id: ArmrestHoleVariant;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    id: "mit_loch",
+    label: "mit Armlehnenloch",
+    hint: "Bezug mit Ausschnitt für Armlehne",
+  },
+  {
+    id: "ohne_loch",
+    label: "ohne Armlehnenloch",
+    hint: "Bezug ohne Armlehnen-Ausschnitt",
+  },
+];
+
+export const HEADREST_OPTIONS = [
+  {
+    id: "mit" as const,
+    label: "mit Kopfstütze",
+    hint: "Kopfstützen-Entwicklung ist Teil des Auftrags",
+  },
+  {
+    id: "ohne" as const,
+    label: "ohne Kopfstütze",
+    hint: "Keine Kopfstützen-Entwicklung in diesem Umfang",
+  },
+];
+
 export const SIDE_MODE_OPTIONS = [
+  {
+    id: "lr" as const,
+    label: "Links & Rechts",
+    hint: "Eigene L- und R-Bezüge / Spiegelpaar",
+  },
   {
     id: "einzeln" as const,
     label: "Einzeln",
@@ -28,51 +64,92 @@ export const SIDE_MODE_OPTIONS = [
     label: "Mitte / Bank",
     hint: "Mittig oder Bank, ohne Spiegelpaar",
   },
-  {
-    id: "lr" as const,
-    label: "L/R später",
-    hint: "Optional später Links/Rechts anlegen – nicht die Hauptachse",
-  },
 ];
 
 export const designTagLabel = Object.fromEntries(
   DESIGN_TAG_OPTIONS.map((o) => [o.id, o.label]),
 ) as Record<string, string>;
 
+export const armrestHoleLabel: Record<ArmrestHoleVariant, string> = {
+  mit_loch: "mit Armlehnenloch",
+  ohne_loch: "ohne Armlehnenloch",
+};
+
 export function seatDisplayLabel(seat: ProgramSeatConfig): string {
   const base = seat.label.trim() || "Sitz";
   const tags = (seat.designTags ?? [])
     .map((t) => designTagLabel[t] ?? t)
     .filter((t) => !base.toLowerCase().includes(t.toLowerCase()));
-  if (!tags.length) return base;
-  return `${base} · ${tags.join(" · ")}`;
+  const extras: string[] = [...tags];
+  if (seat.headrest === "mit") extras.push("mit Kopfstütze");
+  if (seat.headrest === "ohne") extras.push("ohne Kopfstütze");
+  if (!extras.length) return base;
+  return `${base} · ${extras.join(" · ")}`;
+}
+
+/** Material × Armlehnenloch → Bezugvarianten-Labels */
+export function expandCoverLabels(seat: ProgramSeatConfig): string[] {
+  const materials =
+    seat.covers.map((c) => c.trim()).filter(Boolean).length > 0
+      ? seat.covers.map((c) => c.trim()).filter(Boolean)
+      : ["Leder"];
+  const holes =
+    seat.armrestHoles && seat.armrestHoles.length > 0
+      ? seat.armrestHoles
+      : (["ohne_loch"] as ArmrestHoleVariant[]);
+  const labels: string[] = [];
+  for (const mat of materials) {
+    for (const hole of holes) {
+      labels.push(`${mat} · ${armrestHoleLabel[hole]}`);
+    }
+  }
+  return labels;
 }
 
 function seat(
   label: string,
   covers: string[],
   designTags: string[] = [],
-  sideMode: ProgramSeatConfig["sideMode"] = "einzeln",
+  sideMode: ProgramSeatConfig["sideMode"] = "lr",
+  opts: {
+    armrestHoles?: ArmrestHoleVariant[];
+    headrest?: ProgramSeatConfig["headrest"];
+  } = {},
 ): ProgramSeatConfig {
-  return { label, covers, designTags, sideMode };
+  return {
+    label,
+    covers,
+    designTags,
+    sideMode,
+    armrestHoles: opts.armrestHoles ?? ["mit_loch", "ohne_loch"],
+    headrest: opts.headrest ?? "mit",
+  };
 }
 
 /** Fertige Vorlagen im Archiv – für schnelle Projektanlage */
 export const BUILTIN_PROGRAM_TEMPLATES: ProgramTemplate[] = [
   {
     id: "tpl-r1-airbag-designs",
-    name: "1. Reihe · mit/ohne Airbag",
+    name: "1. Reihe · mit/ohne Airbag · Armlehne",
     description:
-      "Eine Sitzreihe, zwei Designs: Sportsitz mit Airbag und ohne Airbag – Bezüge getrennt, kein L/R.",
+      "Eine Sitzreihe: Sportsitz mit/ohne Airbag, Bezüge mit und ohne Armlehnenloch, L/R, mit Kopfstütze.",
     customerHint: "OEM typisch",
     supplyScope: "bezug_schnittstelle",
-    equipment: ["sitzheizung", "airbag"],
+    equipment: ["sitzheizung", "airbag", "durchlade"],
+    includesHeadrest: true,
+    sopDateHint: "SOP ca. 18 Monate nach Kick-off",
     rows: [
       {
         label: "1. Reihe",
         seats: [
-          seat("Sportsitz", ["Leder", "Alcantara"], ["mit_airbag", "design_a"], "einzeln"),
-          seat("Sportsitz", ["Leder", "Stoff"], ["ohne_airbag", "design_b"], "einzeln"),
+          seat("Sportsitz", ["Leder", "Alcantara"], ["mit_airbag", "design_a"], "lr", {
+            armrestHoles: ["mit_loch", "ohne_loch"],
+            headrest: "mit",
+          }),
+          seat("Sportsitz", ["Leder", "Stoff"], ["ohne_airbag", "design_b"], "lr", {
+            armrestHoles: ["ohne_loch"],
+            headrest: "mit",
+          }),
         ],
       },
     ],
@@ -81,44 +158,63 @@ export const BUILTIN_PROGRAM_TEMPLATES: ProgramTemplate[] = [
     id: "tpl-2r-klassisch",
     name: "2 Reihen · Sport + Normal",
     description:
-      "1. Reihe Sportsitz/Normalsitz, 2. Reihe Normalsitz – Design-Varianten, Seitenanlage einzeln.",
+      "1. Reihe L/R mit Armlehnenloch-Varianten, 2. Reihe ohne Loch; Kopfstütze in Reihe 1.",
     supplyScope: "bezug_schnittstelle",
-    equipment: ["sitzheizung"],
+    equipment: ["sitzheizung", "durchlade"],
+    includesHeadrest: true,
     rows: [
       {
         label: "1. Reihe",
         seats: [
-          seat("Sportsitz", ["Leder", "Alcantara"], ["design_a", "mit_airbag"], "einzeln"),
-          seat("Normalsitz", ["Leder", "Stoff"], ["design_b", "ohne_airbag"], "einzeln"),
+          seat("Sportsitz", ["Leder", "Alcantara"], ["design_a", "mit_airbag"], "lr"),
+          seat("Normalsitz", ["Leder", "Stoff"], ["design_b", "ohne_airbag"], "lr"),
         ],
       },
       {
         label: "2. Reihe",
-        seats: [seat("Normalsitz", ["Leder", "Stoff"], ["ohne_airbag"], "einzeln")],
+        seats: [
+          seat("Normalsitz", ["Leder", "Stoff"], ["ohne_airbag"], "lr", {
+            armrestHoles: ["ohne_loch"],
+            headrest: "ohne",
+          }),
+        ],
       },
     ],
   },
   {
     id: "tpl-3r-bank",
     name: "3 Reihen · Fond Bank",
-    description: "Drei Reihen, 3. Reihe als Sitzbank (Mitte) – Designs ohne L/R-Zwang.",
+    description: "Drei Reihen, 3. Reihe Bank ohne L/R und ohne Kopfstützen-Entwicklung.",
     supplyScope: "bezug",
     equipment: ["durchlade"],
+    includesHeadrest: true,
     rows: [
       {
         label: "1. Reihe",
         seats: [
-          seat("Sportsitz", ["Leder"], ["mit_airbag", "design_a"], "einzeln"),
-          seat("Normalsitz", ["Stoff"], ["ohne_airbag"], "einzeln"),
+          seat("Sportsitz", ["Leder"], ["mit_airbag", "design_a"], "lr"),
+          seat("Normalsitz", ["Stoff"], ["ohne_airbag"], "lr", {
+            armrestHoles: ["ohne_loch"],
+          }),
         ],
       },
       {
         label: "2. Reihe",
-        seats: [seat("Normalsitz", ["Leder", "Stoff"], ["ohne_airbag"], "einzeln")],
+        seats: [
+          seat("Normalsitz", ["Leder", "Stoff"], ["ohne_airbag"], "lr", {
+            armrestHoles: ["ohne_loch"],
+            headrest: "ohne",
+          }),
+        ],
       },
       {
         label: "3. Reihe",
-        seats: [seat("Sitzbank", ["Stoff"], ["ohne_airbag"], "mitte")],
+        seats: [
+          seat("Sitzbank", ["Stoff"], ["ohne_airbag"], "mitte", {
+            armrestHoles: ["ohne_loch"],
+            headrest: "ohne",
+          }),
+        ],
       },
     ],
   },
@@ -126,33 +222,63 @@ export const BUILTIN_PROGRAM_TEMPLATES: ProgramTemplate[] = [
     id: "tpl-komplettsitz",
     name: "Komplettsitz · Design A/B",
     description:
-      "Komplettsitz-Umfang: zwei Designs in Reihe 1 (A mit Airbag, B ohne), Module Kunststoff/Schaum/Struktur.",
+      "Komplettsitz: Design A mit Armlehnenloch + Kopfstütze, Design B ohne Loch.",
     supplyScope: "komplettsitz",
-    equipment: ["sitzheizung", "sitzlueftung", "airbag", "memory"],
+    equipment: ["sitzheizung", "sitzlueftung", "airbag", "memory", "durchlade"],
+    includesHeadrest: true,
     rows: [
       {
         label: "1. Reihe",
         seats: [
-          seat("Sportsitz", ["Alcantara", "Leder"], ["design_a", "mit_airbag"], "einzeln"),
-          seat("Sportsitz", ["Leder"], ["design_b", "ohne_airbag"], "einzeln"),
+          seat("Sportsitz", ["Alcantara", "Leder"], ["design_a", "mit_airbag"], "lr"),
+          seat("Sportsitz", ["Leder"], ["design_b", "ohne_airbag"], "lr", {
+            armrestHoles: ["ohne_loch"],
+            headrest: "ohne",
+          }),
         ],
       },
       {
         label: "2. Reihe",
-        seats: [seat("Normalsitz", ["Leder", "Stoff"], ["design_c"], "einzeln")],
+        seats: [
+          seat("Normalsitz", ["Leder", "Stoff"], ["design_c"], "lr", {
+            armrestHoles: ["ohne_loch"],
+            headrest: "ohne",
+          }),
+        ],
+      },
+    ],
+  },
+  {
+    id: "tpl-ohne-kopfstuetze",
+    name: "Nur Bezug · ohne Kopfstütze",
+    description:
+      "Bezug ohne Kopfstützen-Entwicklung; mit/ohne Armlehnenloch, L/R.",
+    supplyScope: "bezug",
+    equipment: ["durchlade"],
+    includesHeadrest: false,
+    rows: [
+      {
+        label: "1. Reihe",
+        seats: [
+          seat("Normalsitz", ["Leder", "Stoff"], [], "lr", {
+            armrestHoles: ["mit_loch", "ohne_loch"],
+            headrest: "ohne",
+          }),
+        ],
       },
     ],
   },
   {
     id: "tpl-leer",
     name: "Leer · selbst aufbauen",
-    description: "Minimale Vorlage: eine Reihe, eine Sitzart – alles frei konfigurierbar.",
+    description: "Minimale Vorlage: eine Reihe – SOP und Varianten selbst setzen.",
     supplyScope: "bezug_schnittstelle",
     equipment: [],
+    includesHeadrest: true,
     rows: [
       {
         label: "1. Reihe",
-        seats: [seat("Normalsitz", ["Leder"], [], "einzeln")],
+        seats: [seat("Normalsitz", ["Leder"], [], "lr")],
       },
     ],
   },
@@ -160,19 +286,23 @@ export const BUILTIN_PROGRAM_TEMPLATES: ProgramTemplate[] = [
 
 export function templateToPartialConfig(
   tpl: ProgramTemplate,
-): Pick<ProgramCreateConfig, "supplyScope" | "equipment" | "rows" | "description"> {
+): Pick<
+  ProgramCreateConfig,
+  "supplyScope" | "equipment" | "rows" | "description" | "includesHeadrest"
+> {
   return {
     supplyScope: tpl.supplyScope,
     equipment: [...tpl.equipment],
     rows: structuredClone(tpl.rows) as ProgramRowConfig[],
     description: tpl.description,
+    includesHeadrest: tpl.includesHeadrest ?? true,
   };
 }
 
 export function countTemplateStats(rows: ProgramRowConfig[]) {
   const seats = rows.reduce((n, r) => n + r.seats.length, 0);
   const covers = rows.reduce(
-    (n, r) => n + r.seats.reduce((m, s) => m + s.covers.length, 0),
+    (n, r) => n + r.seats.reduce((m, s) => m + expandCoverLabels(s).length, 0),
     0,
   );
   const designs = rows.reduce(

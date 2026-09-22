@@ -9,8 +9,8 @@ import {
   partMatchesArt,
 } from "@/components/ModuleKindFilter";
 import { ProgressBar } from "@/components/ProgressBar";
-import { AmpelBadge, Button, PageHeader, Panel, StatusPill } from "@/components/ui";
-import { projectStatusLabel } from "@/lib/labels";
+import { AmpelBadge, Button, Modal, PageHeader, Panel, StatusPill } from "@/components/ui";
+import { projectStatusLabel, formatDate } from "@/lib/labels";
 import { projectReleaseProgress } from "@/lib/progress";
 import { useStore } from "@/lib/store";
 import { equipmentLabels, getChildren, supplyScopeLabel } from "@/lib/structure";
@@ -50,14 +50,21 @@ export default function ProjectsPage() {
         title="Projekte"
         description="Nach Art filtern (Bezug, Kunststoff, Schaum, Metall …). Fortschritt = Anteil freigegebener Bauteile."
         actions={
-          <Button onClick={() => setShowWizard((v) => !v)}>
-            {showWizard ? "Assistent schließen" : "Neues Programm"}
-          </Button>
+          <Button onClick={() => setShowWizard(true)}>Neues Programm</Button>
         }
       />
 
       {showWizard ? (
-        <CreateProgramWizard onCancel={() => setShowWizard(false)} />
+        <Modal
+          title="Neues Programm anlegen"
+          size="xl"
+          onClose={() => setShowWizard(false)}
+        >
+          <CreateProgramWizard
+            embedded
+            onCancel={() => setShowWizard(false)}
+          />
+        </Modal>
       ) : null}
 
       <div className="mb-6">
@@ -110,6 +117,14 @@ export default function ProjectsPage() {
                           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--ink-muted)]">
                             <StatusPill tone="accent">{projectStatusLabel[p.status]}</StatusPill>
                             <StatusPill tone="ok">{supplyScopeLabel[p.supplyScope]}</StatusPill>
+                            {p.sopDate ? (
+                              <StatusPill tone="accent">SOP {formatDate(p.sopDate)}</StatusPill>
+                            ) : null}
+                            {p.includesHeadrest != null ? (
+                              <StatusPill>
+                                {p.includesHeadrest ? "mit Kopfstütze" : "ohne Kopfstütze"}
+                              </StatusPill>
+                            ) : null}
                             <span>
                               {rows.length} Sitzreihe{rows.length === 1 ? "" : "n"}
                             </span>

@@ -21,7 +21,7 @@ import {
 import { nextRevisionNumber } from "./revisions";
 import { loadState, resetState, saveState } from "./storage";
 import { supplyScopeLabel } from "./structure";
-import { seatDisplayLabel } from "./program-templates";
+import { expandCoverLabels, seatDisplayLabel } from "./program-templates";
 import type {
   Activity,
   Approval,
@@ -1013,6 +1013,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const name = config.name.trim() || `Programm ${code}`;
         const customer = config.customer.trim() || "Kunde";
         const equipment = [...new Set(config.equipment)];
+        const headrestText = config.includesHeadrest
+          ? " Inkl. Kopfstützen-Entwicklung."
+          : " Ohne Kopfstützen-Entwicklung.";
         const equipText =
           equipment.length > 0
             ? ` Ausstattung: ${equipment
@@ -1043,9 +1046,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           description:
             (config.description?.trim() ||
               `${supplyScopeLabel[config.supplyScope]} – Struktur aus Konfigurator.`) +
+            headrestText +
             equipText,
           supplyScope: config.supplyScope,
           equipment,
+          sopDate: config.sopDate,
+          includesHeadrest: config.includesHeadrest,
         };
 
         const nodes: StructureNode[] = [];
@@ -1064,10 +1070,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             const seatLabel = seatDisplayLabel(seat);
             const sideHint =
               seat.sideMode === "lr"
-                ? " (L/R optional)"
+                ? " (L/R)"
                 : seat.sideMode === "mitte"
                   ? " (Mitte)"
-                  : "";
+                  : " (einzeln)";
             nodes.push({
               id: seatId,
               projectId,
@@ -1079,17 +1085,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             const modules = modulesForScope(projectId, seatId, config.supplyScope);
             nodes.push(...modules);
             const bezugModul = modules.find((m) => m.moduleKind === "bezug")!;
-            const covers =
-              seat.covers.map((c) => c.trim()).filter(Boolean).length > 0
-                ? seat.covers.map((c) => c.trim()).filter(Boolean)
-                : ["Leder"];
-            covers.forEach((cover, ci) => {
+            expandCoverLabels(seat).forEach((coverLabel, ci) => {
               nodes.push({
                 id: uid(),
                 projectId,
                 parentId: bezugModul.id,
                 type: "bezugvariante",
-                label: cover,
+                label: coverLabel,
                 sortOrder: ci + 1,
               });
             });
