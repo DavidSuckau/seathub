@@ -4,10 +4,21 @@
  */
 export function withBasePath(path: string): string {
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-  if (!path.startsWith("/")) return `${base}/${path}`;
-  if (!base) return path;
-  if (path === base || path.startsWith(`${base}/`)) return path;
-  return `${base}${path}`;
+  let p = path.startsWith("/") ? path : `/${path}`;
+  if (base && !(p === base || p.startsWith(`${base}/`))) {
+    p = `${base}${p}`;
+  }
+  return ensureTrailingSlash(p);
+}
+
+/** Static export mit trailingSlash: true → Ordner-URLs brauchen Slash */
+function ensureTrailingSlash(path: string): string {
+  const q = path.indexOf("?");
+  const pathname = q >= 0 ? path.slice(0, q) : path;
+  const query = q >= 0 ? path.slice(q) : "";
+  if (/\.[a-zA-Z0-9]+$/.test(pathname)) return path;
+  const withSlash = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  return `${withSlash}${query}`;
 }
 
 /** Client-Navigation inkl. basePath (Pages-Deploy). */
