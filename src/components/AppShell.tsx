@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { demoRoleLabel } from "@/lib/labels";
 import { isTeamLead } from "@/lib/roles";
 import { useStore } from "@/lib/store";
@@ -121,7 +121,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     [state.demoRole, currentUser?.departmentId, teamLead],
   );
   const roleUsers = state.users.filter((u) => u.demoRole === state.demoRole);
-  const showStudioHint = state.demoRole === "mitarbeiter";
+  const showStudio = state.demoRole !== "mitarbeiter" && state.demoRole !== "extern";
+  const [demoOpen, setDemoOpen] = useState(false);
 
   return (
     <div className="min-h-screen lg:flex">
@@ -173,16 +174,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </ul>
             </div>
           ))}
-          {showStudioHint ? (
+          {showStudio ? (
             <div className="mt-auto border-t border-[var(--line)] pt-4">
               <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-subtle)]">
-                Für Prozess-Owner
+                Studio
               </p>
               <Link
                 href="/studio"
                 className="block rounded-lg px-2.5 py-2 text-sm text-[var(--ink-subtle)] hover:bg-[var(--bg-elevated)] hover:text-[var(--ink)]"
               >
-                Studio öffnen
+                Studio
               </Link>
             </div>
           ) : null}
@@ -212,40 +213,57 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
 
             <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-              <div className="flex rounded-full bg-[var(--bg-elevated)] p-0.5">
-                {roles.map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => setDemoRole(role)}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition sm:px-3 sm:text-xs ${
-                      state.demoRole === role
-                        ? "bg-[var(--surface)] text-[var(--ink)] shadow-[var(--shadow)]"
-                        : "text-[var(--ink-muted)] hover:text-[var(--ink)]"
-                    }`}
-                  >
-                    {demoRoleLabel[role]}
-                  </button>
-                ))}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setDemoOpen((v) => !v)}
+                  className="rounded-full border border-[var(--line)] px-3 py-1.5 text-[11px] font-medium text-[var(--ink-subtle)] hover:text-[var(--ink)]"
+                  title="Nur für Prototyp / Präsentation"
+                >
+                  Demo
+                </button>
+                {demoOpen ? (
+                  <div className="absolute right-0 z-50 mt-2 w-56 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] p-2 shadow-[var(--shadow-md)]">
+                    <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-subtle)]">
+                      Rolle (Demo)
+                    </p>
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      {roles.map((role) => (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => setDemoRole(role)}
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                            state.demoRole === role
+                              ? "bg-[var(--accent)] text-white"
+                              : "bg-[var(--bg-elevated)] text-[var(--ink-muted)]"
+                          }`}
+                        >
+                          {demoRoleLabel[role]}
+                        </button>
+                      ))}
+                    </div>
+                    <select
+                      className="mb-2 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2 py-1.5 text-xs"
+                      value={state.currentUserId}
+                      onChange={(e) => setCurrentUserId(e.target.value)}
+                    >
+                      {(roleUsers.length ? roleUsers : state.users).map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="ghost"
+                      onClick={resetDemo}
+                      className="!w-full !justify-center !text-xs"
+                    >
+                      Daten zurücksetzen
+                    </Button>
+                  </div>
+                ) : null}
               </div>
-              <select
-                className="max-w-[140px] rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--ink)]"
-                value={state.currentUserId}
-                onChange={(e) => setCurrentUserId(e.target.value)}
-              >
-                {(roleUsers.length ? roleUsers : state.users).map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-              <Button
-                variant="ghost"
-                onClick={resetDemo}
-                className="!rounded-full !px-3 !py-1.5 !text-xs"
-              >
-                Reset
-              </Button>
             </div>
           </div>
 
@@ -278,7 +296,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
 
         <footer className="border-t border-[var(--line)] py-4 text-center text-xs text-[var(--ink-subtle)]">
-          SeatHub · digitaler Arbeitsplatz · Daten lokal im Browser
+          SeatHub
         </footer>
       </div>
     </div>
