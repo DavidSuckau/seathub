@@ -15,8 +15,9 @@ import {
   buildChecklist,
   checklistComplete,
   checklistForTaskType,
-  firstAuftragNode,
-  nextFlowNode,
+  firstTaskCreatingNode,
+  resolveTaskTypeForNode,
+  walkFlowAfter,
 } from "./platform";
 import {
   applyComponentDecisions,
@@ -32,15 +33,18 @@ import { supplyScopeLabel } from "./structure";
 import { expandCoverLabels, seatDisplayLabel } from "./program-templates";
 import type {
   Activity,
+  AgentInsight,
   Approval,
   DemoRole,
+  FlowNode,
+  FlowNodeKind,
   Lop,
   LopHistoryEntry,
   Part,
+  PendingFollowUp,
+  ProcessFlow,
   ProgramCreateConfig,
   ProgramTemplate,
-  ProcessFlow,
-  AgentInsight,
   Revision,
   SeatHubState,
   StructureNode,
@@ -72,14 +76,37 @@ type StoreContextValue = {
   }) => Task | null;
   /**
    * Auftrag erledigen: Checkliste Pflicht, dann optional Folgeauftrag laut Flow.
-   * Gibt den Folgeauftrag zurück, falls erzeugt.
+   * Auto → Folgeauftrag; Vorschlag → pendingFollowUp am erledigten Auftrag.
    */
   completeTaskAutomated: (
     taskId: string,
     timeSpentMinutes: number,
-  ) => { ok: boolean; reason?: string; followUp?: Task };
+  ) => {
+    ok: boolean;
+    reason?: string;
+    followUp?: Task;
+    pendingProposal?: PendingFollowUp;
+    reachedEnd?: boolean;
+  };
+  /** Mensch bestätigt Folge-Vorschlag → erzeugt Auftrag */
+  acceptFollowUpProposal: (taskId: string) => Task | null;
+  rejectFollowUpProposal: (taskId: string, reason?: string) => void;
   updateFlow: (id: string, patch: Partial<ProcessFlow>) => void;
   moveFlowNode: (flowId: string, nodeId: string, x: number, y: number) => void;
+  addFlowNode: (
+    flowId: string,
+    kind: FlowNodeKind,
+    partial?: Partial<FlowNode>,
+  ) => FlowNode | null;
+  updateFlowNode: (
+    flowId: string,
+    nodeId: string,
+    patch: Partial<FlowNode>,
+  ) => void;
+  removeFlowNode: (flowId: string, nodeId: string) => void;
+  addFlowEdge: (flowId: string, from: string, to: string) => void;
+  removeFlowEdge: (flowId: string, edgeId: string) => void;
+  duplicateFlow: (flowId: string) => ProcessFlow | null;
   pushAgentInsight: (insight: Omit<AgentInsight, "id" | "at"> & { at?: string }) => void;
   addLop: (
     lop: Omit<Lop, "id" | "createdAt" | "history" | "photos"> & {
@@ -484,11 +511,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       startProcessFlow: (input) => {
         const flow = state.flows?.find((f) => f.id === input.flowId);
         if (!flow) return null;
-        const node = firstAuftragNode(flow);
-        if (!node?.taskType) return null;
+        const node = firstTaskCreatingNode(flow);
+        const taskType = node ? resolveTaskTypeForNode(node) : undefined;
+        if (!node || !taskType) return null;
         const labels =
           node.checklistLabels ??
-          checklistForTaskType[node.taskType] ??
+          checklistForTaskType[taskType] ??
           [];
         const createdAt = new Date().toISOString();
         const created: Task = {
@@ -496,12 +524,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           title:
             input.title?.trim() ||
             `${node.label} · Flow ${flow.name}`,
-          type: node.taskType,
+          type: taskType,
           status: "offen",
           projectId: input.projectId,
           partId: input.partId,
           departmentId:
-            node.departmentId ?? orderTypeDepartment[node.taskType],
+            node.departmentId ?? orderTypeDepartment[taskType],
           createdByUserId: state.currentUserId,
           needsAssignment: true,
           priority: "hoch",
@@ -555,63 +583,88 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         const now = new Date().toISOString();
         let followUp: Task | undefined;
+        let pendingProposal: PendingFollowUp | undefined;
+        let reachedEnd = false;
         const flow = task.flowId
           ? state.flows?.find((f) => f.id === task.flowId)
           : undefined;
-        let next = task.flowNodeId && flow
-          ? nextFlowNode(flow, task.flowNodeId)
+        const walk =
+          task.flowNodeId && flow
+            ? walkFlowAfter(flow, task.flowNodeId)
+            : undefined;
+        const walkNote = walk?.passed.length
+          ? `Über: ${walk.passed.map((p) => p.label).join(" → ")}`
           : undefined;
-        // Skip non-auftrag nodes until next auftrag or ende
-        let guard = 0;
-        while (next && next.kind !== "auftrag" && next.kind !== "ende" && guard < 10) {
-          next = nextFlowNode(flow!, next.id);
-          guard++;
-        }
-        if (
-          flow &&
-          flow.mode === "auto" &&
-          next?.kind === "auftrag" &&
-          next.taskType &&
-          task.partId
-        ) {
-          const labels =
-            next.checklistLabels ??
-            checklistForTaskType[next.taskType] ??
-            [];
-          followUp = {
-            id: uid(),
-            title: `${next.label} · Folge aus ${task.title}`,
-            type: next.taskType,
-            status: "offen",
-            projectId: task.projectId,
-            partId: task.partId,
-            revisionStand: task.revisionStand,
-            departmentId:
-              next.departmentId ?? orderTypeDepartment[next.taskType],
-            createdByUserId: state.currentUserId,
-            needsAssignment: true,
-            priority: task.priority,
-            dueDate: task.dueDate,
-            progress: 0,
-            description: `Automatisch erzeugt durch Flow „${flow.name}“ nach Abschluss von „${task.title}“.`,
-            createdAt: now,
-            flowId: flow.id,
-            flowNodeId: next.id,
-            checklist: buildChecklist(labels),
-            history: [
-              {
+
+        if (flow && walk) {
+          reachedEnd = walk.reachedEnd;
+          const next = walk.nextTaskNode;
+          const nextType = next ? resolveTaskTypeForNode(next) : undefined;
+          if (next && nextType && task.partId) {
+            if (flow.mode === "auto") {
+              const labels =
+                next.checklistLabels ??
+                checklistForTaskType[nextType] ??
+                [];
+              followUp = {
                 id: uid(),
-                at: now,
-                actorUserId: state.currentUserId,
-                action: "Folgeauftrag (Flow)",
-                detail: `Aus ${task.id}`,
-              },
-            ],
-          };
+                title: `${next.label} · Folge aus ${task.title}`,
+                type: nextType,
+                status: "offen",
+                projectId: task.projectId,
+                partId: task.partId,
+                revisionStand: task.revisionStand,
+                departmentId:
+                  next.departmentId ?? orderTypeDepartment[nextType],
+                createdByUserId: state.currentUserId,
+                needsAssignment: true,
+                priority: task.priority,
+                dueDate: task.dueDate,
+                progress: 0,
+                description: `Automatisch erzeugt durch Flow „${flow.name}“ nach Abschluss von „${task.title}“.${walkNote ? ` ${walkNote}` : ""}`,
+                createdAt: now,
+                flowId: flow.id,
+                flowNodeId: next.id,
+                checklist: buildChecklist(labels),
+                history: [
+                  {
+                    id: uid(),
+                    at: now,
+                    actorUserId: state.currentUserId,
+                    action: "Folgeauftrag (Flow)",
+                    detail: `Aus ${task.id}`,
+                  },
+                ],
+              };
+            } else {
+              pendingProposal = {
+                flowNodeId: next.id,
+                label: next.label,
+                taskType: nextType,
+                departmentId: next.departmentId,
+                agentId: next.agentId,
+                checklistLabels:
+                  next.checklistLabels ??
+                  checklistForTaskType[nextType],
+                proposedAt: now,
+                note: walkNote,
+              };
+            }
+          }
         }
 
         mutate((prev) => {
           const insights = [...(prev.agentInsights ?? [])];
+          for (const wi of walk?.insights ?? []) {
+            insights.unshift({
+              id: uid(),
+              agentId: wi.agentId,
+              at: now,
+              title: wi.title,
+              detail: wi.detail,
+              severity: wi.severity,
+            });
+          }
           if (followUp) {
             insights.unshift({
               id: uid(),
@@ -622,6 +675,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               severity: "ok",
               href: `/tasks/${followUp.id}`,
               actionLabel: "Öffnen",
+            });
+          } else if (pendingProposal) {
+            insights.unshift({
+              id: uid(),
+              agentId: pendingProposal.agentId ?? "ag-lead",
+              at: now,
+              title: "Folge-Schritt vorgeschlagen",
+              detail: `${pendingProposal.label} – wartet auf Bestätigung`,
+              severity: "warn",
+              href: `/tasks/${taskId}`,
+              actionLabel: "Entscheiden",
+            });
+          } else if (flow && reachedEnd) {
+            insights.unshift({
+              id: uid(),
+              agentId: "ag-termin",
+              at: now,
+              title: "Flow abgeschlossen",
+              detail: `„${flow.name}“ erreicht Ende nach „${task.title}“.`,
+              severity: "ok",
             });
           } else if (flow) {
             insights.unshift({
@@ -645,6 +718,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   progress: 100,
                   completedAt: now,
                   timeSpentMinutes,
+                  pendingFollowUp: pendingProposal,
                   history: [
                     ...(t.history ?? []),
                     {
@@ -672,6 +746,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                           },
                         ]
                       : []),
+                    ...(pendingProposal
+                      ? [
+                          {
+                            id: uid(),
+                            at: now,
+                            actorUserId: prev.currentUserId,
+                            action: "Folge vorgeschlagen",
+                            detail: pendingProposal.label,
+                          },
+                        ]
+                      : []),
+                    ...(reachedEnd
+                      ? [
+                          {
+                            id: uid(),
+                            at: now,
+                            actorUserId: prev.currentUserId,
+                            action: "Flow Ende erreicht",
+                            detail: flow?.name ?? "",
+                          },
+                        ]
+                      : []),
                   ],
                 };
               }),
@@ -682,12 +778,125 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         logActivity({
           action: followUp
             ? "Auftrag erledigt + Folgeauftrag"
-            : "Auftrag erledigt",
+            : pendingProposal
+              ? "Auftrag erledigt + Folge-Vorschlag"
+              : "Auftrag erledigt",
           entityType: "task",
           entityId: taskId,
-          detail: followUp?.title,
+          detail: followUp?.title ?? pendingProposal?.label,
         });
-        return { ok: true, followUp };
+        return { ok: true, followUp, pendingProposal, reachedEnd };
+      },
+      acceptFollowUpProposal: (taskId) => {
+        const task = state.tasks.find((t) => t.id === taskId);
+        const proposal = task?.pendingFollowUp;
+        if (!task || !proposal || !task.partId || !task.flowId) return null;
+        const now = new Date().toISOString();
+        const labels = proposal.checklistLabels ?? [];
+        const created: Task = {
+          id: uid(),
+          title: `${proposal.label} · Folge aus ${task.title}`,
+          type: proposal.taskType,
+          status: "offen",
+          projectId: task.projectId,
+          partId: task.partId,
+          revisionStand: task.revisionStand,
+          departmentId:
+            proposal.departmentId ??
+            orderTypeDepartment[proposal.taskType],
+          createdByUserId: state.currentUserId,
+          needsAssignment: true,
+          priority: task.priority,
+          dueDate: task.dueDate,
+          progress: 0,
+          description: `Vom Menschen bestätigt (Flow-Vorschlag) nach „${task.title}“.${proposal.note ? ` ${proposal.note}` : ""}`,
+          createdAt: now,
+          flowId: task.flowId,
+          flowNodeId: proposal.flowNodeId,
+          checklist: buildChecklist(labels),
+          history: [
+            {
+              id: uid(),
+              at: now,
+              actorUserId: state.currentUserId,
+              action: "Folge bestätigt",
+              detail: `Aus Vorschlag zu ${task.id}`,
+            },
+          ],
+        };
+        mutate((prev) => ({
+          ...prev,
+          tasks: [
+            created,
+            ...prev.tasks.map((t) =>
+              t.id === taskId
+                ? {
+                    ...t,
+                    pendingFollowUp: undefined,
+                    history: [
+                      ...(t.history ?? []),
+                      {
+                        id: uid(),
+                        at: now,
+                        actorUserId: prev.currentUserId,
+                        action: "Folge-Vorschlag angenommen",
+                        detail: created.title,
+                      },
+                    ],
+                  }
+                : t,
+            ),
+          ],
+          agentInsights: [
+            {
+              id: uid(),
+              agentId: proposal.agentId ?? "ag-lead",
+              at: now,
+              title: "Mensch hat Folge bestätigt",
+              detail: created.title,
+              severity: "ok" as const,
+              href: `/tasks/${created.id}`,
+              actionLabel: "Öffnen",
+            },
+            ...(prev.agentInsights ?? []),
+          ].slice(0, 40),
+        }));
+        return created;
+      },
+      rejectFollowUpProposal: (taskId, reason) => {
+        const now = new Date().toISOString();
+        mutate((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((t) => {
+            if (t.id !== taskId || !t.pendingFollowUp) return t;
+            return {
+              ...t,
+              pendingFollowUp: undefined,
+              history: [
+                ...(t.history ?? []),
+                {
+                  id: uid(),
+                  at: now,
+                  actorUserId: prev.currentUserId,
+                  action: "Folge-Vorschlag abgelehnt",
+                  detail: reason?.trim() || t.pendingFollowUp.label,
+                },
+              ],
+            };
+          }),
+          agentInsights: [
+            {
+              id: uid(),
+              agentId: "ag-lead",
+              at: now,
+              title: "Folge-Vorschlag abgelehnt",
+              detail: reason?.trim() || "Ohne Begründung",
+              severity: "warn" as const,
+              href: `/tasks/${taskId}`,
+            },
+            ...(prev.agentInsights ?? []),
+          ].slice(0, 40),
+        }));
       },
       updateFlow: (id, patch) => {
         mutate((prev) => ({
@@ -711,6 +920,120 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 },
           ),
         }));
+      },
+      addFlowNode: (flowId, kind, partial) => {
+        const flow = state.flows?.find((f) => f.id === flowId);
+        if (!flow) return null;
+        const defaults: Record<FlowNodeKind, Partial<FlowNode>> = {
+          start: { label: "Start" },
+          ende: { label: "Ende" },
+          auftrag: {
+            label: "Neuer Auftrag",
+            taskType: "cad",
+            departmentId: "cad",
+            checklistLabels: checklistForTaskType.cad,
+          },
+          freigabe: {
+            label: "Freigabe",
+            taskType: "pruefung",
+            departmentId: "engineering",
+            checklistLabels: checklistForTaskType.pruefung,
+          },
+          agent: { label: "KI-Agent", agentId: "ag-lead" },
+          lager: { label: "Lager", agentId: "ag-lager" },
+          standort: { label: "Standort", agentId: "ag-termin" },
+          abteilung: { label: "Abteilung", agentId: "ag-lead" },
+        };
+        const maxX = Math.max(40, ...flow.nodes.map((n) => n.x));
+        const node: FlowNode = {
+          id: uid(),
+          kind,
+          label: defaults[kind].label ?? kind,
+          x: maxX + 180,
+          y: 160,
+          ...defaults[kind],
+          ...partial,
+        };
+        mutate((prev) => ({
+          ...prev,
+          flows: (prev.flows ?? []).map((f) =>
+            f.id === flowId ? { ...f, nodes: [...f.nodes, node] } : f,
+          ),
+        }));
+        return node;
+      },
+      updateFlowNode: (flowId, nodeId, patch) => {
+        mutate((prev) => ({
+          ...prev,
+          flows: (prev.flows ?? []).map((f) =>
+            f.id !== flowId
+              ? f
+              : {
+                  ...f,
+                  nodes: f.nodes.map((n) =>
+                    n.id === nodeId ? { ...n, ...patch } : n,
+                  ),
+                },
+          ),
+        }));
+      },
+      removeFlowNode: (flowId, nodeId) => {
+        mutate((prev) => ({
+          ...prev,
+          flows: (prev.flows ?? []).map((f) => {
+            if (f.id !== flowId) return f;
+            const node = f.nodes.find((n) => n.id === nodeId);
+            if (node?.kind === "start") return f;
+            return {
+              ...f,
+              nodes: f.nodes.filter((n) => n.id !== nodeId),
+              edges: f.edges.filter(
+                (e) => e.from !== nodeId && e.to !== nodeId,
+              ),
+            };
+          }),
+        }));
+      },
+      addFlowEdge: (flowId, from, to) => {
+        if (from === to) return;
+        mutate((prev) => ({
+          ...prev,
+          flows: (prev.flows ?? []).map((f) => {
+            if (f.id !== flowId) return f;
+            if (f.edges.some((e) => e.from === from && e.to === to)) return f;
+            return {
+              ...f,
+              edges: [...f.edges, { id: uid(), from, to }],
+            };
+          }),
+        }));
+      },
+      removeFlowEdge: (flowId, edgeId) => {
+        mutate((prev) => ({
+          ...prev,
+          flows: (prev.flows ?? []).map((f) =>
+            f.id !== flowId
+              ? f
+              : { ...f, edges: f.edges.filter((e) => e.id !== edgeId) },
+          ),
+        }));
+      },
+      duplicateFlow: (flowId) => {
+        const flow = state.flows?.find((f) => f.id === flowId);
+        if (!flow) return null;
+        const copy: ProcessFlow = {
+          ...flow,
+          id: uid(),
+          name: `${flow.name} (Kopie)`,
+          active: false,
+          nodes: flow.nodes.map((n) => ({ ...n })),
+          edges: flow.edges.map((e) => ({ ...e })),
+        };
+        mutate((prev) => ({
+          ...prev,
+          flows: [...(prev.flows ?? []), copy],
+        }));
+        return copy;
       },
       pushAgentInsight: (insight) => {
         mutate((prev) => ({

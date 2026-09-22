@@ -402,6 +402,23 @@ export interface Task {
   flowNodeId?: string;
   /** Checklistenpunkte vor Abschluss */
   checklist?: ChecklistItem[];
+  /**
+   * Modus „vorschlagen“: nächster Schritt wartet auf Bestätigung durch Mensch.
+   */
+  pendingFollowUp?: PendingFollowUp;
+}
+
+/** Vorschlag für Folgeauftrag (Mensch bestätigt) */
+export interface PendingFollowUp {
+  flowNodeId: string;
+  label: string;
+  taskType: TaskType;
+  departmentId?: DepartmentId;
+  agentId?: string;
+  checklistLabels?: string[];
+  proposedAt: string;
+  /** Insights, die beim Walk schon gelaufen sind (Anzeige) */
+  note?: string;
 }
 
 export interface ChecklistItem {

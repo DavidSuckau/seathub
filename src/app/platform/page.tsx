@@ -13,9 +13,14 @@ export default function PlatformPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Vision live"
+        eyebrow="Studio"
         title="Digitale Unternehmensplattform"
-        description="SeatHub als Domäne – Flow-Generator, KI-Agenten und automatische Folgeaufträge für die Präsentation."
+        description="Für Prozess-Owner und Demos – Flows, Agenten, Drehbuch. Der Alltag läuft über Mein Tag."
+        actions={
+          <Link href="/studio">
+            <Button variant="secondary">Studio-Hub</Button>
+          </Link>
+        }
       />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -82,20 +87,21 @@ export default function PlatformPage() {
       <Panel title="Demo-Drehbuch (3 Minuten)">
         <ol className="list-decimal space-y-2 pl-5 text-sm text-[var(--ink-muted)]">
           <li>
-            <strong className="text-[var(--ink)]">Flow öffnen</strong> – „Sitzbezug
-            Muster“ zeigen, Nodes verschieben.
+            <strong className="text-[var(--ink)]">Flow öffnen</strong> – Nodes
+            verschieben, Verbindung ziehen, Modus Auto/Vorschlag umschalten.
           </li>
           <li>
             <strong className="text-[var(--ink)]">Prozess starten</strong> – TN
-            wählen → erster Auftrag mit Checkliste.
+            wählen → erster Auftrag mit Checkliste + Flow-Pfad.
           </li>
           <li>
             <strong className="text-[var(--ink)]">Checkliste abhaken</strong> –
-            Auftrag erledigen → Folgeauftrag (CAD) entsteht automatisch.
+            erledigen → Auto-Folge <em>oder</em> Vorschlag zum Bestätigen;
+            Agent-/Lager-Nodes erzeugen Insights.
           </li>
           <li>
-            <strong className="text-[var(--ink)]">Agenten</strong> – Zuweisung Top-3
-            + Lager/Standort-Simulation.
+            <strong className="text-[var(--ink)]">Agenten</strong> – Zuweisung
+            Top-3 + Lager/Standort-Simulation.
           </li>
         </ol>
         <div className="mt-4 flex flex-wrap gap-2">

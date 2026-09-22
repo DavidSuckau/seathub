@@ -17,12 +17,25 @@ const kindTone: Record<string, "accent" | "ok" | "watch" | "warn" | "neutral"> =
   standort: "neutral",
 };
 
-export function FlowCanvas({ flow }: { flow: ProcessFlow }) {
-  const { moveFlowNode } = useStore();
+export function FlowCanvas({
+  flow,
+  selectedNodeId,
+  onSelectNode,
+  connectFromId,
+  connectMode,
+}: {
+  flow: ProcessFlow;
+  selectedNodeId?: string | null;
+  onSelectNode?: (nodeId: string) => void;
+  connectFromId?: string | null;
+  connectMode?: boolean;
+}) {
+  const { moveFlowNode, addFlowEdge } = useStore();
   const [drag, setDrag] = useState<{
     nodeId: string;
     ox: number;
     oy: number;
+    moved: boolean;
   } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -33,6 +46,7 @@ export function FlowCanvas({ flow }: { flow: ProcessFlow }) {
       nodeId: node.id,
       ox: e.clientX - node.x,
       oy: e.clientY - node.y,
+      moved: false,
     });
   }
 
@@ -40,11 +54,25 @@ export function FlowCanvas({ flow }: { flow: ProcessFlow }) {
     if (!drag) return;
     const x = Math.max(0, e.clientX - drag.ox);
     const y = Math.max(0, e.clientY - drag.oy);
+    if (!drag.moved) {
+      setDrag({ ...drag, moved: true });
+    }
     moveFlowNode(flow.id, drag.nodeId, x, y);
   }
 
-  function onPointerUp() {
+  function onPointerUp(e: React.PointerEvent, node: FlowNode) {
+    const wasDrag = drag;
     setDrag(null);
+    if (!wasDrag || wasDrag.nodeId !== node.id) return;
+    if (wasDrag.moved) return;
+    if (connectMode && connectFromId) {
+      if (connectFromId !== node.id) {
+        addFlowEdge(flow.id, connectFromId, node.id);
+      }
+      onSelectNode?.(node.id);
+      return;
+    }
+    onSelectNode?.(node.id);
   }
 
   const maxX = Math.max(800, ...flow.nodes.map((n) => n.x + 200));
@@ -56,8 +84,7 @@ export function FlowCanvas({ flow }: { flow: ProcessFlow }) {
       className="relative overflow-auto rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--bg)]"
       style={{ minHeight: 420 }}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerLeave={onPointerUp}
+      onPointerLeave={() => setDrag(null)}
     >
       <svg
         className="pointer-events-none absolute left-0 top-0"
@@ -100,36 +127,43 @@ export function FlowCanvas({ flow }: { flow: ProcessFlow }) {
       </svg>
 
       <div className="relative" style={{ width: maxX, height: maxY }}>
-        {flow.nodes.map((node) => (
-          <button
-            key={node.id}
-            type="button"
-            onPointerDown={(e) => onPointerDown(e, node)}
-            className={`absolute w-[160px] cursor-grab rounded-[var(--radius)] border bg-[var(--surface)] px-3 py-2.5 text-left shadow-[var(--shadow)] active:cursor-grabbing ${
-              drag?.nodeId === node.id
-                ? "border-[var(--accent)] z-10"
-                : "border-[var(--line)]"
-            }`}
-            style={{ left: node.x, top: node.y }}
-          >
-            <StatusPill tone={kindTone[node.kind] ?? "neutral"}>
-              {flowNodeKindLabel[node.kind]}
-            </StatusPill>
-            <p className="mt-1.5 text-sm font-semibold text-[var(--ink)]">
-              {node.label}
-            </p>
-            {node.taskType ? (
-              <p className="mt-0.5 text-[11px] text-[var(--ink-subtle)]">
-                {node.taskType}
+        {flow.nodes.map((node) => {
+          const selected = selectedNodeId === node.id;
+          const connectFrom = connectFromId === node.id;
+          return (
+            <button
+              key={node.id}
+              type="button"
+              onPointerDown={(e) => onPointerDown(e, node)}
+              onPointerUp={(e) => onPointerUp(e, node)}
+              className={`absolute w-[160px] cursor-grab rounded-[var(--radius)] border bg-[var(--surface)] px-3 py-2.5 text-left shadow-[var(--shadow)] active:cursor-grabbing ${
+                selected || connectFrom
+                  ? "border-[var(--accent)] z-10 ring-2 ring-[var(--accent)]/30"
+                  : drag?.nodeId === node.id
+                    ? "border-[var(--accent)] z-10"
+                    : "border-[var(--line)]"
+              }`}
+              style={{ left: node.x, top: node.y }}
+            >
+              <StatusPill tone={kindTone[node.kind] ?? "neutral"}>
+                {flowNodeKindLabel[node.kind]}
+              </StatusPill>
+              <p className="mt-1.5 text-sm font-semibold text-[var(--ink)]">
+                {node.label}
               </p>
-            ) : null}
-            {(node.checklistLabels?.length ?? 0) > 0 ? (
-              <p className="mt-1 text-[10px] text-[var(--accent)]">
-                {node.checklistLabels!.length} Checkpunkte
-              </p>
-            ) : null}
-          </button>
-        ))}
+              {node.taskType ? (
+                <p className="mt-0.5 text-[11px] text-[var(--ink-subtle)]">
+                  {node.taskType}
+                </p>
+              ) : null}
+              {(node.checklistLabels?.length ?? 0) > 0 ? (
+                <p className="mt-1 text-[10px] text-[var(--accent)]">
+                  {node.checklistLabels!.length} Checkpunkte
+                </p>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

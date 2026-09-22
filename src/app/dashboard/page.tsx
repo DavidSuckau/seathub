@@ -1,238 +1,239 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import {
-  type ArtFilter,
-  ArtFilterLayout,
-  ModuleKindFilter,
-  partMatchesArt,
-} from "@/components/ModuleKindFilter";
-import { AmpelBadge, PageHeader, Panel, StatusPill } from "@/components/ui";
+import { useMemo } from "react";
+import { Button, Panel, StatusPill } from "@/components/ui";
 import { CALENDAR_TODAY } from "@/lib/calendar";
-import { formatDate, taskStatusLabel } from "@/lib/labels";
+import { formatDate, taskTypeLabel } from "@/lib/labels";
+import { isTeamLead } from "@/lib/roles";
 import { useStore } from "@/lib/store";
-import type { ModuleKind } from "@/lib/types";
+
+function greeting(name: string): string {
+  const h = new Date().getHours();
+  const first = name.split(" ")[0] ?? name;
+  if (h < 11) return `Guten Morgen, ${first}`;
+  if (h < 18) return `Guten Tag, ${first}`;
+  return `Guten Abend, ${first}`;
+}
 
 export default function DashboardPage() {
   const { state, currentUser } = useStore();
   const uid = state.currentUserId;
-  const [artFilter, setArtFilter] = useState<ArtFilter>("alle");
-
-  const myTasks = state.tasks.filter((t) => t.assigneeId === uid);
-  const openAll = myTasks.filter(
-    (t) => !["abgeschlossen", "erledigt", "gestoppt"].includes(t.status),
-  );
-
-  const availableArts = useMemo(() => {
-    const set = new Set<ModuleKind>();
-    for (const t of openAll) {
-      const part = state.parts.find((p) => p.id === t.partId);
-      if (part?.moduleKind) set.add(part.moduleKind);
-    }
-    return Array.from(set);
-  }, [openAll, state.parts]);
+  const lead = isTeamLead(currentUser);
 
   const open = useMemo(() => {
-    if (artFilter === "alle") return openAll;
-    return openAll.filter((t) => {
-      const part = state.parts.find((p) => p.id === t.partId);
-      return part ? partMatchesArt(part, artFilter) : false;
-    });
-  }, [openAll, artFilter, state.parts]);
+    return state.tasks
+      .filter(
+        (t) =>
+          t.assigneeId === uid &&
+          !["abgeschlossen", "erledigt", "gestoppt"].includes(t.status),
+      )
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }, [state.tasks, uid]);
 
-  const dueToday = open.filter((t) => t.dueDate.slice(0, 10) <= CALENDAR_TODAY);
-  const critical = open.filter((t) => t.priority === "kritisch" || t.risk === "rot");
-  const myLops = state.lops.filter(
-    (l) => l.assigneeIds.includes(uid) && l.status !== "geschlossen",
+  const critical = open.filter(
+    (t) => t.priority === "kritisch" || t.risk === "rot",
+  );
+  const top = open.slice(0, 5);
+
+  const pendingProposals = state.tasks.filter(
+    (t) => t.assigneeId === uid && t.pendingFollowUp,
   );
 
-  /** Nur Freigaben, die meine Aufträge oder meine Projekte betreffen */
-  const myApprovals = useMemo(() => {
-    return state.approvals.filter((a) => {
-      if (a.decision !== "offen") return false;
-      if (a.taskId) {
-        const task = state.tasks.find((t) => t.id === a.taskId);
-        return (
-          !!task &&
-          (task.assigneeId === uid || task.createdByUserId === uid)
-        );
-      }
-      return state.tasks.some(
-        (t) => t.projectId === a.projectId && t.assigneeId === uid,
-      );
-    });
-  }, [state.approvals, state.tasks, uid]);
+  const agentHints = (state.agentInsights ?? [])
+    .filter((i) => i.severity === "warn" || i.severity === "kritisch")
+    .slice(0, 2);
 
-  const waitingFreigabe = open.filter((t) => t.status === "warten_freigabe");
-  const freigabeCount = Math.max(myApprovals.length, waitingFreigabe.length);
-
-  const myProjects = state.projects.filter((p) =>
-    state.tasks.some((t) => t.projectId === p.id && t.assigneeId === uid),
-  );
-
-  const myDept = currentUser?.departmentId
-    ? state.departments.find((d) => d.id === currentUser.departmentId)
-    : undefined;
+  const deptQueue = useMemo(() => {
+    if (!lead || !currentUser?.departmentId) return [];
+    return state.tasks
+      .filter(
+        (t) =>
+          t.departmentId === currentUser.departmentId &&
+          (t.needsAssignment || !t.assigneeId) &&
+          !["erledigt", "abgeschlossen", "gestoppt"].includes(t.status),
+      )
+      .slice(0, 5);
+  }, [lead, currentUser?.departmentId, state.tasks]);
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="Persönlich"
-        title="Mein Tag"
-        description={
-          currentUser
-            ? `${currentUser.name} · ${currentUser.roleLabel}`
-            : "Persönliches Dashboard"
-        }
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/calendar"
-              className="text-sm font-medium text-[var(--accent)] hover:underline"
-            >
-              → Mein Kalender
-            </Link>
-            {myDept ? (
-              <Link
-                href={`/departments/${myDept.id}`}
-                className="text-sm font-medium text-[var(--accent)] hover:underline"
+    <div className="max-w-2xl">
+      <header className="mb-8 animate-fade-up">
+        <p className="text-sm text-[var(--ink-muted)]">Dein Arbeitstag</p>
+        <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
+          {currentUser ? greeting(currentUser.name) : "Mein Tag"}
+        </h1>
+        <p className="mt-3 text-base text-[var(--ink-muted)]">
+          <span className="font-semibold text-[var(--ink)]">{open.length}</span>{" "}
+          Aufgaben offen
+          {critical.length > 0 ? (
+            <>
+              {" "}
+              ·{" "}
+              <span className="font-semibold text-[var(--warn)]">
+                {critical.length} kritisch
+              </span>
+            </>
+          ) : null}
+        </p>
+      </header>
+
+      <section className="mb-8 space-y-3 animate-fade-up">
+        {top.length === 0 ? (
+          <Panel>
+            <p className="text-sm text-[var(--ink-muted)]">
+              Keine offenen Aufträge. Schöner Tag.
+            </p>
+          </Panel>
+        ) : (
+          top.map((t) => {
+            const part = state.parts.find((p) => p.id === t.partId);
+            const checklistDone =
+              t.checklist?.filter((c) => c.done).length ?? 0;
+            const checklistTotal = t.checklist?.length ?? 0;
+            const nextStep =
+              t.checklist?.find((c) => !c.done)?.label ??
+              taskTypeLabel[t.type];
+            const dueToday = t.dueDate.slice(0, 10) <= CALENDAR_TODAY;
+            return (
+              <div
+                key={t.id}
+                className="rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] px-5 py-4 shadow-[var(--shadow)]"
               >
-                → {myDept.name}
-              </Link>
-            ) : null}
-          </div>
-        }
-      />
-
-      <ArtFilterLayout
-        filter={
-          <ModuleKindFilter
-            value={artFilter}
-            onChange={setArtFilter}
-            available={availableArts}
-          />
-        }
-      >
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 animate-fade-up">
-        {[
-          { label: "Offene Aufträge", value: open.length, href: "/tasks" },
-          { label: "Heute fällig", value: dueToday.length, href: "/calendar" },
-          { label: "Kritisch", value: critical.length, href: "/tasks" },
-          { label: "Meine LOPs", value: myLops.length, href: "/lops" },
-          {
-            label: "Warten auf Freigabe",
-            value: freigabeCount,
-            href: "/tasks",
-          },
-        ].map((s) => (
-          <Link
-            key={s.label}
-            href={s.href}
-            className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow)] transition hover:border-[var(--accent)]"
-          >
-            <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-subtle)]">
-              {s.label}
-            </p>
-            <p className="mt-1 font-[family-name:var(--font-display)] text-3xl text-[var(--ink)]">
-              {s.value}
-            </p>
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <Panel title="Meine Aufträge" className="animate-fade-up">
-          <ul className="divide-y divide-[var(--line)]">
-            {open.length === 0 ? (
-              <li className="py-4 text-sm text-[var(--ink-subtle)]">Keine offenen Aufträge.</li>
-            ) : (
-              open.map((t) => (
-                <li key={t.id}>
-                  <Link
-                    href={`/tasks/${t.id}`}
-                    className="flex flex-col gap-1 py-3 transition hover:bg-[var(--bg-elevated)] sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div>
-                      <p className="font-medium text-[var(--ink)]">{t.title}</p>
-                      <p className="text-sm text-[var(--ink-muted)]">
-                        Fällig {formatDate(t.dueDate)} · {taskStatusLabel[t.status]}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {t.risk ? <AmpelBadge ampel={t.risk} /> : null}
-                      <StatusPill
-                        tone={
-                          t.priority === "kritisch"
-                            ? "danger"
-                            : t.priority === "hoch"
-                              ? "warn"
-                              : "neutral"
-                        }
-                      >
-                        {t.priority}
-                      </StatusPill>
-                    </div>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-[var(--ink-subtle)]">
+                      {part?.partNumber ?? taskTypeLabel[t.type]}
+                    </p>
+                    <h2 className="mt-0.5 text-lg font-semibold text-[var(--ink)]">
+                      {t.title}
+                    </h2>
+                    <p className="mt-2 text-sm text-[var(--ink-muted)]">
+                      Nächster Schritt:{" "}
+                      <span className="font-medium text-[var(--ink)]">
+                        {nextStep}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--ink-subtle)]">
+                      {dueToday ? "Heute" : formatDate(t.dueDate)}
+                      {checklistTotal > 0
+                        ? ` · Fortschritt ${checklistDone}/${checklistTotal}`
+                        : t.progress
+                          ? ` · ${t.progress} %`
+                          : ""}
+                    </p>
+                  </div>
+                  <Link href={`/tasks/${t.id}`}>
+                    <Button>Auftrag öffnen</Button>
                   </Link>
-                </li>
-              ))
-            )}
+                </div>
+                {checklistTotal > 0 ? (
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--bg-elevated)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--accent)]"
+                      style={{
+                        width: `${Math.round((checklistDone / checklistTotal) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })
+        )}
+      </section>
+
+      {pendingProposals.length > 0 ? (
+        <section className="mb-8">
+          <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">
+            SeatHub empfiehlt
+          </h2>
+          <ul className="space-y-3">
+            {pendingProposals.map((t) => (
+              <li
+                key={t.id}
+                className="rounded-[var(--radius)] border border-[var(--accent)]/25 bg-[var(--accent-soft)]/50 px-4 py-3"
+              >
+                <p className="text-sm font-medium text-[var(--ink)]">
+                  {t.pendingFollowUp!.label}
+                </p>
+                <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                  Nach „{t.title}“ – bitte bestätigen.
+                </p>
+                <Link
+                  href={`/tasks/${t.id}`}
+                  className="mt-2 inline-block text-sm font-medium text-[var(--accent)]"
+                >
+                  Entscheiden →
+                </Link>
+              </li>
+            ))}
           </ul>
-        </Panel>
-
-        <div className="space-y-6 animate-fade-up-delay">
-          <Panel title="Meine Projekte">
-            <ul className="space-y-3">
-              {myProjects.map((p) => (
-                <li key={p.id}>
+        </section>
+      ) : agentHints.length > 0 ? (
+        <section className="mb-8">
+          <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">
+            SeatHub empfiehlt
+          </h2>
+          <ul className="space-y-3">
+            {agentHints.map((ins) => (
+              <li
+                key={ins.id}
+                className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3"
+              >
+                <p className="text-sm font-medium text-[var(--ink)]">
+                  {ins.title}
+                </p>
+                <p className="mt-1 text-xs text-[var(--ink-muted)]">{ins.detail}</p>
+                {ins.href ? (
                   <Link
-                    href={`/projects/${p.id}`}
-                    className="flex items-center justify-between gap-2"
+                    href={ins.href}
+                    className="mt-2 inline-block text-sm font-medium text-[var(--accent)]"
                   >
-                    <span className="font-medium">{p.name}</span>
-                    <AmpelBadge ampel={p.ampel} />
+                    {ins.actionLabel ?? "Öffnen"} →
                   </Link>
-                </li>
-              ))}
-              {myProjects.length === 0 ? (
-                <p className="text-sm text-[var(--ink-subtle)]">Keine zugewiesenen Projekte.</p>
-              ) : null}
-            </ul>
-          </Panel>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
-          <Panel title="Meine Fähigkeiten">
-            <ul className="space-y-2">
-              {(currentUser?.skills ?? []).map((s) => (
-                <li key={s.name} className="flex items-center justify-between text-sm">
-                  <span>
-                    {s.name}{" "}
-                    <span className="text-[var(--ink-subtle)]">
-                      · {s.confirmed ? "Bestätigt" : "Selbst angegeben"}
-                    </span>
-                  </span>
-                  <StatusPill tone="accent">Level {s.level}</StatusPill>
-                </li>
-              ))}
-            </ul>
-          </Panel>
+      {lead && deptQueue.length > 0 ? (
+        <section className="mb-8">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-[var(--ink)]">
+              Team – Zuweisung offen
+            </h2>
+            <Link href="/tasks" className="text-xs font-medium text-[var(--accent)]">
+              Warteschlange
+            </Link>
+          </div>
+          <ul className="space-y-2">
+            {deptQueue.map((t) => (
+              <li key={t.id}>
+                <Link
+                  href={`/tasks/${t.id}`}
+                  className="flex items-center justify-between rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm hover:border-[var(--accent)]"
+                >
+                  <span className="font-medium">{t.title}</span>
+                  <StatusPill tone="warn">Zuweisen</StatusPill>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
-          <Panel title="Offene LOPs">
-            <ul className="space-y-2">
-              {myLops.slice(0, 5).map((l) => (
-                <li key={l.id}>
-                  <Link href={`/lops/${l.id}`} className="text-sm font-medium hover:text-[var(--accent)]">
-                    {l.title}
-                  </Link>
-                </li>
-              ))}
-              {myLops.length === 0 ? (
-                <p className="text-sm text-[var(--ink-subtle)]">Keine offenen LOPs.</p>
-              ) : null}
-            </ul>
-          </Panel>
-        </div>
-      </div>
-      </ArtFilterLayout>
+      <p className="text-center text-xs text-[var(--ink-subtle)]">
+        <Link href="/tasks" className="text-[var(--accent)]">
+          Alle Aufträge
+        </Link>
+        {" · "}
+        <Link href="/lops" className="text-[var(--accent)]">
+          LOPs
+        </Link>
+      </p>
     </div>
   );
 }

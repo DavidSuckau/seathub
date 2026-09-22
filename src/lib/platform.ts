@@ -142,17 +142,143 @@ export function nextFlowNode(
   return flow.nodes.find((n) => n.id === edge.to);
 }
 
-export function firstAuftragNode(flow: ProcessFlow): FlowNode | undefined {
-  const start = flow.nodes.find((n) => n.kind === "start");
-  if (!start) return flow.nodes.find((n) => n.kind === "auftrag");
-  let cur: FlowNode | undefined = start;
-  for (let i = 0; i < 20; i++) {
-    const next = nextFlowNode(flow, cur.id);
-    if (!next) return undefined;
-    if (next.kind === "auftrag") return next;
-    cur = next;
-  }
+/** Nodes, die einen echten Auftrag erzeugen (inkl. Freigabe) */
+export function isTaskCreatingNode(node: FlowNode): boolean {
+  if (node.kind === "auftrag") return Boolean(node.taskType);
+  if (node.kind === "freigabe") return true;
+  return false;
+}
+
+export function resolveTaskTypeForNode(node: FlowNode): TaskType | undefined {
+  if (node.taskType) return node.taskType;
+  if (node.kind === "freigabe") return "pruefung";
   return undefined;
+}
+
+/** Agent-/Lager-/Standort-Zwischenstationen → Insight, dann weiterlaufen */
+export function isPassThroughNode(node: FlowNode): boolean {
+  return (
+    node.kind === "agent" ||
+    node.kind === "lager" ||
+    node.kind === "standort" ||
+    node.kind === "abteilung"
+  );
+}
+
+export type FlowWalkInsight = {
+  agentId: string;
+  title: string;
+  detail: string;
+  severity: AgentInsight["severity"];
+};
+
+export type FlowWalkResult = {
+  nextTaskNode?: FlowNode;
+  reachedEnd: boolean;
+  insights: FlowWalkInsight[];
+  passed: FlowNode[];
+};
+
+/**
+ * Nach Abschluss eines Nodes: Zwischen-Agenten/Lager laufen durch (Insights),
+ * bis zum nächsten Auftrags-/Freigabe-Node oder Ende.
+ */
+export function walkFlowAfter(
+  flow: ProcessFlow,
+  fromNodeId: string,
+): FlowWalkResult {
+  const insights: FlowWalkInsight[] = [];
+  const passed: FlowNode[] = [];
+  let cur = nextFlowNode(flow, fromNodeId);
+  let guard = 0;
+  while (cur && guard < 24) {
+    guard++;
+    if (cur.kind === "ende") {
+      return { reachedEnd: true, insights, passed };
+    }
+    if (isTaskCreatingNode(cur) && resolveTaskTypeForNode(cur)) {
+      return { nextTaskNode: cur, reachedEnd: false, insights, passed };
+    }
+    if (isPassThroughNode(cur)) {
+      passed.push(cur);
+      insights.push(insightForPassThrough(cur));
+      cur = nextFlowNode(flow, cur.id);
+      continue;
+    }
+    // Unbekannt / Start ohne Typ → weiter
+    cur = nextFlowNode(flow, cur.id);
+  }
+  return { reachedEnd: !cur, insights, passed };
+}
+
+function insightForPassThrough(node: FlowNode): FlowWalkInsight {
+  if (node.kind === "lager") {
+    return {
+      agentId: node.agentId ?? "ag-lager",
+      title: `Lager geprüft: ${node.label}`,
+      detail:
+        "Bestand und Umlagerung vorbereitet – Mensch bestätigt Materialfreigabe am nächsten Auftrag.",
+      severity: "warn",
+    };
+  }
+  if (node.kind === "standort") {
+    return {
+      agentId: node.agentId ?? "ag-termin",
+      title: `Standort: ${node.label}`,
+      detail: "Kosten/Termin-Trade-off berechnet – Entscheidung offen.",
+      severity: "kritisch",
+    };
+  }
+  if (node.kind === "abteilung") {
+    return {
+      agentId: node.agentId ?? "ag-lead",
+      title: `Abteilung: ${node.label}`,
+      detail: "Kapazität und Priorität geprüft.",
+      severity: "info",
+    };
+  }
+  return {
+    agentId: node.agentId ?? "ag-cad",
+    title: `Agent: ${node.label}`,
+    detail: "Zwischenprüfung abgeschlossen – nächster Schritt vorbereitet.",
+    severity: "info",
+  };
+}
+
+export function firstTaskCreatingNode(
+  flow: ProcessFlow,
+): FlowNode | undefined {
+  const start = flow.nodes.find((n) => n.kind === "start");
+  if (!start) {
+    return flow.nodes.find(
+      (n) => isTaskCreatingNode(n) && resolveTaskTypeForNode(n),
+    );
+  }
+  const walk = walkFlowAfter(flow, start.id);
+  return walk.nextTaskNode;
+}
+
+/** @deprecated alias */
+export function firstAuftragNode(flow: ProcessFlow): FlowNode | undefined {
+  return firstTaskCreatingNode(flow);
+}
+
+/** Lineare Pfad-Ansicht vom Start (erste Kante je Node) */
+export function orderedFlowPath(flow: ProcessFlow): FlowNode[] {
+  const start = flow.nodes.find((n) => n.kind === "start");
+  if (!start) return flow.nodes;
+  const path: FlowNode[] = [start];
+  let cur: FlowNode | undefined = start;
+  const seen = new Set<string>([start.id]);
+  for (let i = 0; i < 40; i++) {
+    const next = nextFlowNode(flow, cur.id);
+    if (!next || seen.has(next.id)) break;
+    path.push(next);
+    seen.add(next.id);
+    cur = next;
+    if (next.kind === "ende") break;
+  }
+  return path;
 }
 
 export function createDemoAgents(): PlatformAgent[] {
@@ -272,7 +398,7 @@ export function createDemoFlows(): ProcessFlow[] {
           id: "n2",
           kind: "agent",
           label: "CAD-Agent prüft",
-          x: 400,
+          x: 360,
           y: 60,
           agentId: "ag-cad",
         },
@@ -280,7 +406,7 @@ export function createDemoFlows(): ProcessFlow[] {
           id: "n3",
           kind: "auftrag",
           label: "CAD / Schnitt",
-          x: 400,
+          x: 360,
           y: 200,
           taskType: "cad",
           departmentId: "cad",
@@ -290,7 +416,7 @@ export function createDemoFlows(): ProcessFlow[] {
           id: "n4",
           kind: "lager",
           label: "Lager prüfen",
-          x: 600,
+          x: 540,
           y: 60,
           agentId: "ag-lager",
         },
@@ -298,7 +424,7 @@ export function createDemoFlows(): ProcessFlow[] {
           id: "n5",
           kind: "auftrag",
           label: "Zuschnitt",
-          x: 600,
+          x: 540,
           y: 200,
           taskType: "zuschnittauftrag",
           departmentId: "zuschnitt",
@@ -308,7 +434,7 @@ export function createDemoFlows(): ProcessFlow[] {
           id: "n6",
           kind: "auftrag",
           label: "Näherei",
-          x: 800,
+          x: 720,
           y: 200,
           taskType: "naehauftrag",
           departmentId: "naeherei",
@@ -318,8 +444,8 @@ export function createDemoFlows(): ProcessFlow[] {
           id: "n7",
           kind: "auftrag",
           label: "Dokumentation",
-          x: 1000,
-          y: 140,
+          x: 900,
+          y: 200,
           taskType: "dokumentation",
           departmentId: "dokumentation",
           checklistLabels: checklistForTaskType.dokumentation,
@@ -329,19 +455,20 @@ export function createDemoFlows(): ProcessFlow[] {
           id: "n8",
           kind: "freigabe",
           label: "Qualität / Freigabe",
-          x: 1180,
-          y: 140,
+          x: 1080,
+          y: 160,
           taskType: "pruefung",
           departmentId: "engineering",
+          checklistLabels: checklistForTaskType.pruefung,
         },
-        { id: "n9", kind: "ende", label: "Versand / Ende", x: 1360, y: 160 },
+        { id: "n9", kind: "ende", label: "Versand / Ende", x: 1260, y: 160 },
       ],
       edges: [
         { id: "e0", from: "n0", to: "n1" },
         { id: "e1", from: "n1", to: "n2" },
-        { id: "e2", from: "n1", to: "n3" },
+        { id: "e2", from: "n2", to: "n3" },
         { id: "e3", from: "n3", to: "n4" },
-        { id: "e4", from: "n3", to: "n5" },
+        { id: "e4", from: "n4", to: "n5" },
         { id: "e5", from: "n5", to: "n6" },
         { id: "e6", from: "n6", to: "n7" },
         { id: "e7", from: "n7", to: "n8" },
