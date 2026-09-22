@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   Button,
-  FilterChip,
   Modal,
   PageHeader,
   Panel,
   StatusPill,
+  inputClass,
 } from "@/components/ui";
 import {
   type ArtFilter,
@@ -22,7 +22,13 @@ import { defaultTaskScope, isTeamLead, type TaskScope } from "@/lib/roles";
 import { useStore } from "@/lib/store";
 import type { ModuleKind, TaskStatus } from "@/lib/types";
 
-const statuses = Object.keys(taskStatusLabel) as TaskStatus[];
+const statusOptions: { value: string; label: string }[] = [
+  { value: "alle", label: "Alle Status" },
+  { value: "zuweisung", label: "Zuweisung offen" },
+  ...(Object.entries(taskStatusLabel) as [TaskStatus, string][]).map(
+    ([value, label]) => ({ value, label }),
+  ),
+];
 
 export default function TasksPage() {
   const { state, currentUser } = useStore();
@@ -79,6 +85,14 @@ export default function TasksPage() {
     return list.filter((t) => t.status === statusFilter);
   }, [scopedTasks, statusFilter, artFilter, state.parts]);
 
+  const scopeOptions = (
+    [
+      { id: "meine" as const, label: "Meine" },
+      ...(deptId ? [{ id: "abteilung" as const, label: "Abteilung" }] : []),
+      ...(isManager ? [{ id: "alle" as const, label: "Alle" }] : []),
+    ] as { id: TaskScope; label: string }[]
+  );
+
   return (
     <div>
       <PageHeader
@@ -109,43 +123,55 @@ export default function TasksPage() {
         </Modal>
       ) : null}
 
-      <div className="mb-3 flex flex-wrap items-center gap-1">
-        {(
-          [
-            { id: "meine" as const, label: "Meine" },
-            ...(deptId
-              ? [{ id: "abteilung" as const, label: "Meine Abteilung" }]
-              : []),
-            ...(isManager ? [{ id: "alle" as const, label: "Alle" }] : []),
-          ] as { id: TaskScope; label: string }[]
-        ).map((opt) => (
-          <FilterChip
-            key={opt.id}
-            active={scope === opt.id}
-            onClick={() => setScope(opt.id)}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        {scopeOptions.length > 1 ? (
+          <div className="min-w-[140px]">
+            <label className="mb-1 block text-xs font-medium text-[var(--ink-subtle)]">
+              Sicht
+            </label>
+            <select
+              className={inputClass}
+              value={scope}
+              onChange={(e) => setScope(e.target.value as TaskScope)}
+            >
+              {scopeOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        <div className="min-w-[200px] flex-1 sm:max-w-xs">
+          <label className="mb-1 block text-xs font-medium text-[var(--ink-subtle)]">
+            Status
+          </label>
+          <select
+            className={inputClass}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
           >
-            {opt.label}
-          </FilterChip>
-        ))}
-      </div>
-
-      {scope === "meine" ? (
-        <div className="mb-3 rounded-md border border-[var(--accent)]/15 bg-[var(--accent-soft)]/60 px-3 py-2 text-xs text-[var(--accent)]">
-          Nur Aufträge, die <strong>dir zugeordnet</strong> sind.
+            {statusOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.value === "zuweisung" && waitingCount > 0
+                  ? `${opt.label} (${waitingCount})`
+                  : opt.label}
+              </option>
+            ))}
+          </select>
         </div>
-      ) : scope === "abteilung" ? (
-        <div className="mb-3 rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--ink-muted)]">
-          Abteilungsblick. Persönliche Aufträge unter{" "}
+        {waitingCount > 0 &&
+        (scope === "abteilung" || scope === "alle") &&
+        statusFilter !== "zuweisung" ? (
           <button
             type="button"
-            className="font-medium text-[var(--accent)] underline"
-            onClick={() => setScope("meine")}
+            onClick={() => setStatusFilter("zuweisung")}
+            className="pb-2 text-sm font-medium text-[var(--warn)] hover:underline"
           >
-            Meine
+            {waitingCount} ohne Zuweisung
           </button>
-          .
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       <ArtFilterLayout
         filter={
@@ -156,99 +182,74 @@ export default function TasksPage() {
           />
         }
       >
-      <div className="mb-4 flex flex-wrap items-center gap-1">
-        <FilterChip
-          active={statusFilter === "alle"}
-          onClick={() => setStatusFilter("alle")}
-        >
-          Alle Status
-        </FilterChip>
-        {(scope === "abteilung" || scope === "alle") && waitingCount > 0 ? (
-          <FilterChip
-            active={statusFilter === "zuweisung"}
-            tone="warn"
-            onClick={() => setStatusFilter("zuweisung")}
-          >
-            Zuweisung offen ({waitingCount})
-          </FilterChip>
-        ) : null}
-        {statuses.slice(0, 6).map((s) => (
-          <FilterChip
-            key={s}
-            active={statusFilter === s}
-            onClick={() => setStatusFilter(s)}
-          >
-            {taskStatusLabel[s]}
-          </FilterChip>
-        ))}
-      </div>
-
-      <Panel>
-        {filtered.length === 0 ? (
-          <p className="py-6 text-center text-sm text-[var(--ink-subtle)]">
-            Keine Aufträge in diesem Filter.
-          </p>
-        ) : (
-          <ul className="divide-y divide-[var(--line)]">
-            {filtered.map((t) => {
-              const part = state.parts.find((p) => p.id === t.partId);
-              const checklistDone =
-                t.checklist?.filter((c) => c.done).length ?? 0;
-              const checklistTotal = t.checklist?.length ?? 0;
-              const nextStep =
-                t.checklist?.find((c) => !c.done)?.label ??
-                taskTypeLabel[t.type];
-              const pct =
-                checklistTotal > 0
-                  ? Math.round((checklistDone / checklistTotal) * 100)
-                  : t.progress;
-              return (
-                <li key={t.id}>
-                  <Link
-                    href={`/tasks/${t.id}`}
-                    className="flex flex-col gap-3 py-4 transition hover:bg-[var(--bg-elevated)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-[var(--ink-subtle)]">
-                        {part?.partNumber ?? "—"} · {taskTypeLabel[t.type]}
-                      </p>
-                      <p className="font-semibold text-[var(--ink)]">{t.title}</p>
-                      <p className="mt-1 text-sm text-[var(--ink-muted)]">
-                        Nächster Schritt:{" "}
-                        <span className="text-[var(--ink)]">{nextStep}</span>
-                      </p>
-                      <div className="mt-2 flex max-w-xs items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--bg-elevated)]">
-                          <div
-                            className="h-full rounded-full bg-[var(--accent)]"
-                            style={{ width: `${pct}%` }}
-                          />
+        <Panel>
+          {filtered.length === 0 ? (
+            <p className="py-6 text-center text-sm text-[var(--ink-subtle)]">
+              Keine Aufträge in diesem Filter.
+            </p>
+          ) : (
+            <ul className="divide-y divide-[var(--line)]">
+              {filtered.map((t) => {
+                const part = state.parts.find((p) => p.id === t.partId);
+                const checklistDone =
+                  t.checklist?.filter((c) => c.done).length ?? 0;
+                const checklistTotal = t.checklist?.length ?? 0;
+                const nextStep =
+                  t.checklist?.find((c) => !c.done)?.label ??
+                  taskTypeLabel[t.type];
+                const pct =
+                  checklistTotal > 0
+                    ? Math.round((checklistDone / checklistTotal) * 100)
+                    : t.progress;
+                return (
+                  <li key={t.id}>
+                    <Link
+                      href={`/tasks/${t.id}`}
+                      className="flex flex-col gap-3 py-4 transition hover:bg-[var(--bg-elevated)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-[var(--ink-subtle)]">
+                          {part?.partNumber ?? "—"} · {taskTypeLabel[t.type]}
+                        </p>
+                        <p className="font-semibold text-[var(--ink)]">
+                          {t.title}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--ink-muted)]">
+                          Nächster Schritt:{" "}
+                          <span className="text-[var(--ink)]">{nextStep}</span>
+                        </p>
+                        <div className="mt-2 flex max-w-xs items-center gap-2">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--bg-elevated)]">
+                            <div
+                              className="h-full rounded-full bg-[var(--accent)]"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-[11px] text-[var(--ink-subtle)]">
+                            {pct} %
+                          </span>
                         </div>
-                        <span className="text-[11px] text-[var(--ink-subtle)]">
-                          {pct} %
+                        <p className="mt-1 text-xs text-[var(--ink-subtle)]">
+                          Fällig {formatDate(t.dueDate)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {t.needsAssignment || !t.assigneeId ? (
+                          <StatusPill tone="warn">Zuweisung offen</StatusPill>
+                        ) : (
+                          <StatusPill>{taskStatusLabel[t.status]}</StatusPill>
+                        )}
+                        <span className="text-sm font-medium text-[var(--accent)]">
+                          Öffnen
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-[var(--ink-subtle)]">
-                        Fällig {formatDate(t.dueDate)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {t.needsAssignment || !t.assigneeId ? (
-                        <StatusPill tone="warn">Zuweisung offen</StatusPill>
-                      ) : (
-                        <StatusPill>{taskStatusLabel[t.status]}</StatusPill>
-                      )}
-                      <span className="text-sm font-medium text-[var(--accent)]">
-                        Öffnen
-                      </span>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Panel>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
       </ArtFilterLayout>
     </div>
   );
