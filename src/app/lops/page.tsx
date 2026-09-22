@@ -113,12 +113,12 @@ export default function LopsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Liste offener Punkte"
-        title="LOP-Management"
+        eyebrow="Arbeitsplatz"
+        title="LOPs"
         description={
           scope === "meine"
-            ? `Nur LOPs, die dir zugeordnet sind${currentUser ? ` (${currentUser.name})` : ""}.`
-            : "LOPs auf jeder Ebene – Werk, Kunde, Näherei, Dokumentation, Engineering."
+            ? "Deine offenen Punkte – abhaken und erledigen."
+            : "Überblick über offene Punkte im Team / System."
         }
         actions={
           <div className="flex flex-wrap gap-2">
@@ -127,11 +127,11 @@ export default function LopsPage() {
                 variant={scope === "meine" ? "secondary" : "ghost"}
                 onClick={() => setScope(scope === "meine" ? "alle" : "meine")}
               >
-                {scope === "meine" ? "Alle LOPs anzeigen" : "Nur meine LOPs"}
+                {scope === "meine" ? "Team / alle" : "Nur meine"}
               </Button>
             ) : (
               <Button variant="ghost" onClick={() => setScope("meine")}>
-                Nur meine LOPs
+                Nur meine
               </Button>
             )}
             <Button onClick={() => setShowForm(true)}>LOP anlegen</Button>

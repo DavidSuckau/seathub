@@ -10,6 +10,7 @@ import {
 import { TaskLopPanel } from "@/components/TaskLopPanel";
 import { TaskProfilePanel } from "@/components/TaskProfilePanel";
 import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
+import { NextAction } from "@/components/NextAction";
 import {
   formatDateTime,
   formatDuration,
@@ -205,30 +206,24 @@ export default function TaskDetailPage() {
       ) : null}
 
       {!done && !waiting ? (
-        <section className="mb-6 rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] px-5 py-5 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-subtle)]">
-            Nächster Schritt
-          </p>
-          <p className="mt-2 text-xl font-semibold text-[var(--ink)]">
-            {nextChecklist ?? taskTypeLabel[task.type]}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {task.status === "offen" ? (
-              <Button
-                onClick={() =>
-                  updateTask(task.id, {
-                    status: "in_bearbeitung",
-                    startedAt: task.startedAt ?? new Date().toISOString(),
-                  })
-                }
-              >
-                Arbeit starten
-              </Button>
-            ) : (
-              <Button onClick={() => setShowComplete(true)}>Erledigen</Button>
-            )}
-          </div>
-        </section>
+        <div className="mb-6">
+          <NextAction
+            description={nextChecklist ?? taskTypeLabel[task.type]}
+            primaryLabel={
+              task.status === "offen" ? "Arbeit starten" : "Erledigen"
+            }
+            onPrimary={() => {
+              if (task.status === "offen") {
+                updateTask(task.id, {
+                  status: "in_bearbeitung",
+                  startedAt: task.startedAt ?? new Date().toISOString(),
+                });
+              } else {
+                setShowComplete(true);
+              }
+            }}
+          />
+        </div>
       ) : null}
 
       {showComplete ? (

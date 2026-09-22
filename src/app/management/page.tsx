@@ -1,27 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { AmpelBadge, PageHeader, Panel, StatusPill } from "@/components/ui";
+import { AmpelBadge, PageHeader, Panel } from "@/components/ui";
 import { useStore } from "@/lib/store";
 
 export default function ManagementPage() {
   const { state } = useStore();
 
-  const ampelCounts = {
-    gruen: state.projects.filter((p) => p.ampel === "gruen").length,
-    gelb: state.projects.filter((p) => p.ampel === "gelb").length,
-    orange: state.projects.filter((p) => p.ampel === "orange").length,
-    rot: state.projects.filter((p) => p.ampel === "rot").length,
-  };
+  const total = state.projects.length || 1;
+  const ok = state.projects.filter((p) => p.ampel === "gruen").length;
+  const watch = state.projects.filter(
+    (p) => p.ampel === "gelb" || p.ampel === "orange",
+  ).length;
+  const critical = state.projects.filter((p) => p.ampel === "rot").length;
 
-  const openTasks = state.tasks.filter(
-    (t) => !["abgeschlossen", "erledigt", "gestoppt"].includes(t.status),
-  );
-  const overdue = openTasks.filter((t) => t.dueDate < "2026-09-18");
-  const criticalTasks = openTasks.filter((t) => t.risk === "rot" || t.priority === "kritisch");
-  const openLops = state.lops.filter((l) => l.status !== "geschlossen");
-  const openApprovals = state.approvals.filter((a) => a.decision === "offen");
-  const externTasks = state.tasks.filter((t) => t.type === "extern" && t.status !== "abgeschlossen");
+  const bottlenecks = state.departments
+    .filter((d) =>
+      ["engineering", "schnittentwicklung", "naeherei", "zuschnitt", "cad"].includes(
+        d.id,
+      ),
+    )
+    .map((d) => ({
+      ...d,
+      tone:
+        d.capacityPercent > 105
+          ? ("kritisch" as const)
+          : d.capacityPercent > 95
+            ? ("risiko" as const)
+            : ("ok" as const),
+    }))
+    .sort((a, b) => b.capacityPercent - a.capacityPercent);
 
   const risks = state.projects
     .filter((p) => p.ampel !== "gruen")
@@ -30,131 +38,135 @@ export default function ManagementPage() {
       return order[a.ampel] - order[b.ampel];
     });
 
+  const locationRows = [
+    { id: "hannover" as const, name: "Hannover" },
+    { id: "rumaenien" as const, name: "Rumänien" },
+    { id: "extern" as const, name: "Extern" },
+  ].map((loc) => {
+    const people = state.users.filter((u) => u.location === loc.id).length;
+    const load = Math.max(
+      0,
+      ...state.departments
+        .filter((d) => d.location === loc.id)
+        .map((d) => d.capacityPercent),
+      0,
+    );
+    return { ...loc, people, load: load || (people > 0 ? 75 : 0) };
+  });
+
   return (
-    <div>
+    <div className="max-w-2xl">
       <PageHeader
-        eyebrow="Vorgesetzte"
-        title="Management-Dashboard"
-        description="Von der Ampel bis zur Ursache – verdichtet, klickbar."
+        eyebrow="Management"
+        title="Übersicht"
+        description="Wo gibt es Probleme? Eine Seite – keine Cockpit-Galerie."
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Panel>
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-subtle)]">Projekte</p>
-          <div className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <AmpelBadge ampel="gruen" /> <span>{ampelCounts.gruen || 0} im Plan*</span>
-            </div>
-            <div className="flex justify-between">
-              <AmpelBadge ampel="gelb" /> <span>{ampelCounts.gelb} beobachten</span>
-            </div>
-            <div className="flex justify-between">
-              <AmpelBadge ampel="orange" /> <span>{ampelCounts.orange} gefährdet</span>
-            </div>
-            <div className="flex justify-between">
-              <AmpelBadge ampel="rot" /> <span>{ampelCounts.rot} kritisch</span>
-            </div>
-            <p className="pt-2 text-xs text-[var(--ink-subtle)]">* Demo: weitere Projekte im Plan möglich</p>
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">
+          Gesamtstatus
+        </h2>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-[var(--radius)] border border-[var(--ok)]/30 bg-[var(--ok-soft)] px-3 py-4 text-center">
+            <p className="text-2xl font-semibold text-[var(--ok)]">
+              {Math.round((ok / total) * 100)} %
+            </p>
+            <p className="text-xs text-[var(--ink-muted)]">im Plan</p>
           </div>
-        </Panel>
+          <div className="rounded-[var(--radius)] border border-[var(--watch)]/30 bg-[var(--watch-soft)] px-3 py-4 text-center">
+            <p className="text-2xl font-semibold text-[var(--watch)]">
+              {Math.round((watch / total) * 100)} %
+            </p>
+            <p className="text-xs text-[var(--ink-muted)]">Risiko</p>
+          </div>
+          <div className="rounded-[var(--radius)] border border-[var(--warn)]/30 bg-[var(--warn-soft)] px-3 py-4 text-center">
+            <p className="text-2xl font-semibold text-[var(--warn)]">
+              {Math.round((critical / total) * 100)} %
+            </p>
+            <p className="text-xs text-[var(--ink-muted)]">kritisch</p>
+          </div>
+        </div>
+      </section>
 
-        <Panel>
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-subtle)]">Aufgaben</p>
-          <p className="mt-2 font-[family-name:var(--font-display)] text-3xl">{openTasks.length} offen</p>
-          <p className="mt-2 text-sm text-[var(--ink-muted)]">
-            {overdue.length} überfällig · {criticalTasks.length} kritisch
-          </p>
-        </Panel>
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">Engpässe</h2>
+        <ul className="space-y-2">
+          {bottlenecks.slice(0, 5).map((d) => (
+            <li
+              key={d.id}
+              className="flex items-center justify-between rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5"
+            >
+              <Link
+                href={`/departments/${d.id}`}
+                className="font-medium text-[var(--ink)] hover:text-[var(--accent)]"
+              >
+                {d.name}
+              </Link>
+              <span
+                className={`text-sm font-semibold ${
+                  d.tone === "kritisch"
+                    ? "text-[var(--warn)]"
+                    : d.tone === "risiko"
+                      ? "text-[var(--watch)]"
+                      : "text-[var(--ok)]"
+                }`}
+              >
+                {d.capacityPercent} %
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-        <Panel>
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-subtle)]">LOP / Freigaben</p>
-          <p className="mt-2 font-[family-name:var(--font-display)] text-3xl">{openLops.length} LOPs</p>
-          <p className="mt-2 text-sm text-[var(--ink-muted)]">{openApprovals.length} Freigaben offen</p>
-        </Panel>
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">Standorte</h2>
+        <ul className="space-y-2">
+          {locationRows.map((loc) => (
+            <li
+              key={loc.id}
+              className="flex items-center justify-between rounded-[var(--radius)] border border-[var(--line)] px-3 py-2.5 text-sm"
+            >
+              <span className="font-medium text-[var(--ink)]">{loc.name}</span>
+              <span
+                className={
+                  loc.load > 105
+                    ? "font-semibold text-[var(--warn)]"
+                    : loc.load > 95
+                      ? "font-semibold text-[var(--watch)]"
+                      : "text-[var(--ok)]"
+                }
+              >
+                {loc.load > 0 ? `${loc.load} %` : "—"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-        <Panel>
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-subtle)]">Extern</p>
-          <p className="mt-2 font-[family-name:var(--font-display)] text-3xl">{externTasks.length}</p>
-          <p className="mt-2 text-sm text-[var(--ink-muted)]">laufende externe Aufträge</p>
-        </Panel>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        <Panel title="Projektrisiken – Drill-down">
+      <Panel title="Abweichungen">
+        {risks.length === 0 ? (
+          <p className="text-sm text-[var(--ink-muted)]">Keine kritischen Programme.</p>
+        ) : (
           <ul className="divide-y divide-[var(--line)]">
-            {risks.map((p) => {
-              const relatedTask = state.tasks.find(
-                (t) => t.projectId === p.id && (t.risk === "rot" || t.risk === "orange"),
-              );
-              return (
-                <li key={p.id} className="py-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <Link
-                        href={`/projects/${p.id}`}
-                        className="font-medium text-[var(--ink)] hover:text-[var(--accent)]"
-                      >
-                        {p.name}
-                      </Link>
-                      <p className="mt-1 text-sm text-[var(--ink-muted)]">{p.milestoneRisk}</p>
-                      {relatedTask ? (
-                        <p className="mt-2 text-sm">
-                          Ursache:{" "}
-                          <Link
-                            href={`/tasks/${relatedTask.id}`}
-                            className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
-                          >
-                            {relatedTask.title}
-                          </Link>
-                        </p>
-                      ) : null}
-                    </div>
-                    <AmpelBadge ampel={p.ampel} />
-                  </div>
-                </li>
-              );
-            })}
+            {risks.map((p) => (
+              <li key={p.id} className="flex items-start justify-between gap-2 py-3">
+                <div>
+                  <Link
+                    href={`/projects/${p.id}`}
+                    className="font-medium hover:text-[var(--accent)]"
+                  >
+                    {p.name}
+                  </Link>
+                  <p className="mt-0.5 text-sm text-[var(--ink-muted)]">
+                    {p.milestoneRisk}
+                  </p>
+                </div>
+                <AmpelBadge ampel={p.ampel} />
+              </li>
+            ))}
           </ul>
-        </Panel>
-
-        <Panel title="Kapazität nach Bereich">
-          <ul className="space-y-3">
-            {state.departments
-              .filter((d) =>
-                ["engineering", "schnittentwicklung", "naeherei", "zuschnitt", "polsterei"].includes(
-                  d.id,
-                ),
-              )
-              .map((d) => (
-                <li key={d.id}>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span>{d.name}</span>
-                    <StatusPill
-                      tone={
-                        d.capacityPercent > 105
-                          ? "danger"
-                          : d.capacityPercent > 95
-                            ? "warn"
-                            : "ok"
-                      }
-                    >
-                      {d.capacityPercent} %
-                    </StatusPill>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-[var(--bg)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--accent)]"
-                      style={{ width: `${Math.min(d.capacityPercent, 120)}%` }}
-                    />
-                  </div>
-                </li>
-              ))}
-          </ul>
-          <p className="mt-4 text-xs text-[var(--ink-subtle)]">
-            Schnittentwicklung 108 % – Kompetenz- und Kapazitätsrisiko sichtbar.
-          </p>
-        </Panel>
-      </div>
+        )}
+      </Panel>
     </div>
   );
 }

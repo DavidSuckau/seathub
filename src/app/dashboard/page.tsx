@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { Button, Panel, StatusPill } from "@/components/ui";
+import { NextAction } from "@/components/NextAction";
 import { CALENDAR_TODAY } from "@/lib/calendar";
 import { formatDate, taskTypeLabel } from "@/lib/labels";
 import { isTeamLead } from "@/lib/roles";
@@ -86,60 +87,70 @@ export default function DashboardPage() {
             </p>
           </Panel>
         ) : (
-          top.map((t) => {
-            const part = state.parts.find((p) => p.id === t.partId);
-            const checklistDone =
-              t.checklist?.filter((c) => c.done).length ?? 0;
-            const checklistTotal = t.checklist?.length ?? 0;
-            const nextStep =
-              t.checklist?.find((c) => !c.done)?.label ??
-              taskTypeLabel[t.type];
-            const dueToday = t.dueDate.slice(0, 10) <= CALENDAR_TODAY;
-            return (
-              <div
-                key={t.id}
-                className="rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] px-5 py-4 shadow-[var(--shadow)]"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs text-[var(--ink-subtle)]">
-                      {part?.partNumber ?? taskTypeLabel[t.type]}
-                    </p>
-                    <h2 className="mt-0.5 text-lg font-semibold text-[var(--ink)]">
-                      {t.title}
-                    </h2>
-                    <p className="mt-2 text-sm text-[var(--ink-muted)]">
-                      Nächster Schritt:{" "}
-                      <span className="font-medium text-[var(--ink)]">
-                        {nextStep}
+          <>
+            {(() => {
+              const t = top[0];
+              const nextStep =
+                t.checklist?.find((c) => !c.done)?.label ??
+                taskTypeLabel[t.type];
+              return (
+                <NextAction
+                  description={
+                    <>
+                      <span className="block text-base font-normal text-[var(--ink-muted)]">
+                        {t.title}
                       </span>
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--ink-subtle)]">
-                      {dueToday ? "Heute" : formatDate(t.dueDate)}
-                      {checklistTotal > 0
-                        ? ` · Fortschritt ${checklistDone}/${checklistTotal}`
-                        : t.progress
-                          ? ` · ${t.progress} %`
+                      <span className="mt-1 block">{nextStep}</span>
+                    </>
+                  }
+                  primaryLabel="Auftrag öffnen"
+                  primaryHref={`/tasks/${t.id}`}
+                />
+              );
+            })()}
+            {top.slice(1).map((t) => {
+              const part = state.parts.find((p) => p.id === t.partId);
+              const checklistDone =
+                t.checklist?.filter((c) => c.done).length ?? 0;
+              const checklistTotal = t.checklist?.length ?? 0;
+              const nextStep =
+                t.checklist?.find((c) => !c.done)?.label ??
+                taskTypeLabel[t.type];
+              const dueToday = t.dueDate.slice(0, 10) <= CALENDAR_TODAY;
+              return (
+                <div
+                  key={t.id}
+                  className="rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] px-5 py-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-[var(--ink-subtle)]">
+                        {part?.partNumber ?? taskTypeLabel[t.type]}
+                      </p>
+                      <h2 className="mt-0.5 text-lg font-semibold text-[var(--ink)]">
+                        {t.title}
+                      </h2>
+                      <p className="mt-2 text-sm text-[var(--ink-muted)]">
+                        Nächster Schritt:{" "}
+                        <span className="font-medium text-[var(--ink)]">
+                          {nextStep}
+                        </span>
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--ink-subtle)]">
+                        {dueToday ? "Heute" : formatDate(t.dueDate)}
+                        {checklistTotal > 0
+                          ? ` · ${checklistDone}/${checklistTotal}`
                           : ""}
-                    </p>
+                      </p>
+                    </div>
+                    <Link href={`/tasks/${t.id}`}>
+                      <Button variant="secondary">Öffnen</Button>
+                    </Link>
                   </div>
-                  <Link href={`/tasks/${t.id}`}>
-                    <Button>Auftrag öffnen</Button>
-                  </Link>
                 </div>
-                {checklistTotal > 0 ? (
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--bg-elevated)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--accent)]"
-                      style={{
-                        width: `${Math.round((checklistDone / checklistTotal) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            );
-          })
+              );
+            })}
+          </>
         )}
       </section>
 

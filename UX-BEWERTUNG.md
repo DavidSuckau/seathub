@@ -257,3 +257,6 @@ SEATHUB
 8. Positionierung: **Digitaler Arbeitsplatz für die Produktion**
 
 Siehe Implementierung: Sidebar-Nav, `/studio`, schlankes Mein Tag / Auftragsdetail.
+
+**Master-Prompt (verbindlich):** `SEATHUB-UX-MASTER.md`  
+**Cursor-Rule:** `.cursor/rules/seathub-ux.mdc` (alwaysApply)

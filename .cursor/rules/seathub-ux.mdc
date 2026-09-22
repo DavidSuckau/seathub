@@ -1,0 +1,41 @@
+---
+description: SeatHub UX – digitaler Arbeitsplatz, Progressive Disclosure, Rollen
+alwaysApply: true
+---
+
+# SeatHub UX (verbindlich)
+
+**Leitidee:** Die Macht steckt im System. Die Oberfläche gehört dem Menschen.  
+**Goldregel:** Hide complexity. Not capability. – Verstecke Komplexität, nicht Möglichkeiten.
+
+## Vor jeder UI-Änderung
+
+1. Braucht **diese Rolle** die Info? Sonst nicht zeigen.
+2. Braucht der Nutzer sie **jetzt**? Sonst nach hinten (Accordion/Details).
+3. Muss er **entscheiden**? Sonst keine prominente Aktion.
+4. Mehrere gleichwertige Buttons? → **eine** Primäraktion.
+5. Gibt es eine einfachere Darstellung derselben Funktion? → die wählen.
+
+## Architektur
+
+- **Arbeitsplatz** (Mitarbeiter): Mein Tag, Aufträge, LOPs, Kalender – max. ~4 Nav-Punkte.
+- **Studio** (`/studio`): Flows, Agenten, Plattform, Org, Projekte für Owner/Manager/Engineering.
+- Home nach Login = **Mein Tag** (bzw. Management / Extern je Rolle).
+- Mitarbeiter denkt: „Was muss ich jetzt?“ – nicht „Wie funktioniert das System?“
+
+## Pro Screen
+
+- **Eine** dominante Aufgabe, **ein** Primärbutton (`NextAction` / klare Hierarchie).
+- Sprache der Rolle (Nähen, Stand, Freigabe) – keine Nodes/Confidence/Agent-IDs im Alltag.
+- Agenten als „SeatHub empfiehlt“, nicht als Technik-Galerie.
+- Flow für Mitarbeiter = Fortschrittspfad (✓/●/○); Flow-Editor nur im Studio.
+
+## Definition of Done (UX)
+
+Richtige Rolle sieht es · falsche nicht · Primäraktion klar · Rest verborgen · nächster Schritt eindeutig · Fortschritt sichtbar · Screen nicht überladen.
+
+## Nicht tun
+
+Features auf Screens stapeln · Enterprise-Cockpit für alle · Flow/Agenten in Mitarbeiter-Nav · „Mehr Infos = bessere UI“.
+
+Volltext: `SEATHUB-UX-MASTER.md`
