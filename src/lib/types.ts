@@ -335,6 +335,37 @@ export type RevisionStatus =
   | "abgelehnt"
   | "ersetzt";
 
+/**
+ * Ein Zuschnittteil aus der Bezug-Stückliste
+ * (Export Zuschnittentwicklung – viele Teile je Bezug).
+ */
+export interface CutPiece {
+  id: string;
+  /** z. B. TEIL1231413 */
+  teilename: string;
+  /** z. B. HAUPTTEIL 100, SEITENWANGE */
+  beschreib: string;
+  kategorie?: string;
+  kommentar?: string;
+  matCode?: string;
+  /** Fläche in m² (roh aus CSV) */
+  flaecheSqm?: string;
+  totalFlaecheSqm?: string;
+  umrissMm?: string;
+  teilX?: string;
+  teilY?: string;
+  anzKnips?: string;
+  anzEcke?: string;
+}
+
+/** Zuschnitt-Stückliste am Bezug-Stand (nicht Excel, direkt am Bauteil). */
+export interface CutBom {
+  createdAt: string;
+  importedAt?: string;
+  sourceFileName?: string;
+  pieces: CutPiece[];
+}
+
 export interface Revision {
   id: string;
   partId: string;
@@ -355,8 +386,13 @@ export interface Revision {
   drawings: string[];
   photos: string[];
   documents: string[];
-  /** Stücklistenpositionen dieses Stands */
+  /** Stücklistenpositionen dieses Stands (Kurzliste / Legacy) */
   bomItems: string[];
+  /**
+   * Nur Bezug: strukturierte Zuschnitt-BOM aus CSV der Zuschnittentwicklung.
+   * undefined = noch nicht angelegt; pieces[] = angelegt (ggf. leer vor Import).
+   */
+  cutBom?: CutBom;
   /**
    * Bei Bezug/Assemblierung: welche Komponenten-Stände genau an diesem Stand hängen.
    * Unabhängig vom aktuellen Stand der Komponente – dokumentiert die Verwendung.

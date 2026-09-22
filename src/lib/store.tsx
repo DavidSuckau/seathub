@@ -1382,6 +1382,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           photos: [],
           documents: [`Auftrag_Schleife_${next}.pdf`],
           bomItems: previousStand?.bomItems ?? [],
+          cutBom: previousStand?.cutBom
+            ? {
+                ...previousStand.cutBom,
+                pieces: previousStand.cutBom.pieces.map((p) => ({ ...p })),
+              }
+            : undefined,
           files: [`ZW_${part.partNumber}_${next}_WIP.pdf`],
           componentStands,
           weightGrams: previousStand?.weightGrams,

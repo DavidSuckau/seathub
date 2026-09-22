@@ -12,6 +12,7 @@ import {
 } from "@/components/LinkExistingProfileForm";
 import { PartLopPanel } from "@/components/PartLopPanel";
 import { PartHauptbild, PartImageThumb } from "@/components/PartHauptbild";
+import { BezugCutBomPanel } from "@/components/BezugCutBomPanel";
 import { Button, PageHeader, Panel, StatusPill, inputClass } from "@/components/ui";
 import { navigate, taskPath, navigateToTask } from "@/lib/nav";
 import {
@@ -519,8 +520,13 @@ function PartDetailInner() {
               )}
             </Panel>
 
-            <Panel title="Stückliste (dieser Stand)">
-              {selected.bomItems.length === 0 ? (
+            <Panel title={isAssembly ? "Stückliste / Zuschnitt" : "Stückliste (dieser Stand)"}>
+              {isAssembly ? (
+                <BezugCutBomPanel
+                  revision={selected}
+                  onChange={(patch) => updateRevision(selected.id, patch)}
+                />
+              ) : selected.bomItems.length === 0 ? (
                 <p className="text-sm text-[var(--ink-subtle)]">Keine Positionen hinterlegt.</p>
               ) : (
                 <ul className="space-y-2 text-sm">
