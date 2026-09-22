@@ -23,7 +23,7 @@ const ids = {
 
 export function createSeedState(): SeatHubState {
   return {
-    version: 17,
+    version: 18,
     currentUserId: ids.anna,
     demoRole: "mitarbeiter",
     departments: [

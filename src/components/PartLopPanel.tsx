@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { LopPhotoGallery } from "@/components/LopPhotoGallery";
-import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
+import { Button, Field, Modal, Panel, StatusPill, inputClass } from "@/components/ui";
 import { lopSourceLabel, lopStatusLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, LopSource, Part } from "@/lib/types";
@@ -89,7 +89,8 @@ export function PartLopPanel({
       {!open ? (
         <Button onClick={() => setOpen(true)}>LOP-Punkt anlegen</Button>
       ) : (
-        <div className="space-y-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg)] p-4">
+        <Modal title="LOP-Punkt anlegen" size="md" onClose={() => setOpen(false)}>
+          <div className="space-y-3">
           <Field label="Titel">
             <input
               className={inputClass}
@@ -140,7 +141,8 @@ export function PartLopPanel({
               Abbrechen
             </Button>
           </div>
-        </div>
+          </div>
+        </Modal>
       )}
     </Panel>
   );

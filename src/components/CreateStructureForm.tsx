@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button, Field, Panel, inputClass } from "@/components/ui";
+import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { useStore } from "@/lib/store";
 import { structureTypeLabel } from "@/lib/structure";
 
@@ -92,7 +92,11 @@ export function CreateStructureForm({ projectId }: { projectId: string }) {
   }
 
   return (
-    <Panel title="Projektstruktur erweitern" className="mb-4">
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Struktur erweitern
+      </Button>
+      <Modal title="Projektstruktur erweitern" size="lg" onClose={reset}>
       <p className="mb-3 text-sm text-[var(--ink-muted)]">
         Sitzreihen → Sitzarten (z. B. Sportsitz) → Bezugvarianten (Alcantara, Leder, Stoff). Bei
         einer neuen Sitzart werden die Module automatisch je Lieferumfang angelegt.
@@ -242,6 +246,7 @@ export function CreateStructureForm({ projectId }: { projectId: string }) {
           werden.
         </p>
       ) : null}
-    </Panel>
+    </Modal>
+    </>
   );
 }

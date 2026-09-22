@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   type ArtFilter,
+  ArtFilterLayout,
   ModuleKindFilter,
   partMatchesArt,
 } from "@/components/ModuleKindFilter";
@@ -104,14 +105,15 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="mb-4">
-        <ModuleKindFilter
-          value={artFilter}
-          onChange={setArtFilter}
-          available={availableArts}
-        />
-      </div>
-
+      <ArtFilterLayout
+        filter={
+          <ModuleKindFilter
+            value={artFilter}
+            onChange={setArtFilter}
+            available={availableArts}
+          />
+        }
+      >
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 animate-fade-up">
         {[
           { label: "Offene Aufträge", value: open.length, href: "/tasks" },
@@ -230,6 +232,7 @@ export default function DashboardPage() {
           </Panel>
         </div>
       </div>
+      </ArtFilterLayout>
     </div>
   );
 }

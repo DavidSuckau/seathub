@@ -6,12 +6,14 @@ import {
   AmpelBadge,
   Button,
   FilterChip,
+  Modal,
   PageHeader,
   Panel,
   StatusPill,
 } from "@/components/ui";
 import {
   type ArtFilter,
+  ArtFilterLayout,
   ModuleKindFilter,
   partMatchesArt,
 } from "@/components/ModuleKindFilter";
@@ -97,12 +99,23 @@ export default function TasksPage() {
         }
         actions={
           canCreate ? (
-            <Button onClick={() => setShowForm((v) => !v)}>
-              {showForm ? "Abbrechen" : "Auftrag anlegen"}
-            </Button>
+            <Button onClick={() => setShowForm(true)}>Auftrag anlegen</Button>
           ) : undefined
         }
       />
+
+      {showForm && canCreate ? (
+        <Modal
+          title="Neuen Auftrag anlegen"
+          size="xl"
+          onClose={() => setShowForm(false)}
+        >
+          <CreateOrderWizard
+            embedded
+            onCancel={() => setShowForm(false)}
+          />
+        </Modal>
+      ) : null}
 
       <div className="mb-3 flex flex-wrap items-center gap-1">
         {(
@@ -142,18 +155,15 @@ export default function TasksPage() {
         </div>
       ) : null}
 
-      {showForm && canCreate ? (
-        <CreateOrderWizard onCancel={() => setShowForm(false)} />
-      ) : null}
-
-      <div className="mb-2">
-        <ModuleKindFilter
-          value={artFilter}
-          onChange={setArtFilter}
-          available={availableArts}
-        />
-      </div>
-
+      <ArtFilterLayout
+        filter={
+          <ModuleKindFilter
+            value={artFilter}
+            onChange={setArtFilter}
+            available={availableArts}
+          />
+        }
+      >
       <div className="mb-4 flex flex-wrap items-center gap-1">
         <FilterChip
           active={statusFilter === "alle"}
@@ -224,6 +234,7 @@ export default function TasksPage() {
           </ul>
         )}
       </Panel>
+      </ArtFilterLayout>
     </div>
   );
 }

@@ -311,6 +311,10 @@ export interface Part {
   mirrorPairPartId?: string;
   /** Kurzinfo zur Anbindung (z. B. Kunststoffschale) */
   interfaceNote?: string;
+  /**
+   * Virtueller Bezug: noch keine reale TN / Platzhalter für frühe Entwicklung & Aufträge
+   */
+  isVirtual?: boolean;
 }
 
 /**

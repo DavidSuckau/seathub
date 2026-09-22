@@ -83,11 +83,12 @@ function PartDetailInner() {
   return (
     <div>
       <PageHeader
-        eyebrow={`Teilenummer ${part.partNumber}`}
+        eyebrow={`Teilenummer ${part.partNumber}${part.isVirtual ? " · virtuell" : ""}`}
         title={part.name}
         description={`${project?.customer ?? ""} · Programm ${project?.code ?? "—"}`}
         actions={
           <div className="flex flex-wrap gap-2">
+            {part.isVirtual ? <StatusPill tone="watch">Virtueller Bezug</StatusPill> : null}
             <Button variant="secondary" onClick={() => setShowLoop((v) => !v)}>
               Neue Entwicklungsschleife
             </Button>

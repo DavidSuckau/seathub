@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { LopPhotoGallery } from "@/components/LopPhotoGallery";
-import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
+import { Button, Field, Modal, Panel, StatusPill, inputClass } from "@/components/ui";
 import { lopSourceLabel, lopStatusLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, LopSource, Task } from "@/lib/types";
@@ -37,7 +37,7 @@ export function TaskLopPanel({ task }: { task: Task }) {
   );
 
   function submit() {
-    if (!title.trim()) return;
+    if (!title.trim() || !task.partId) return;
     const deptId = (task.departmentId || "engineering") as DepartmentId;
     const created = addLop({
       title: title.trim(),
@@ -103,61 +103,67 @@ export function TaskLopPanel({ task }: { task: Task }) {
         <p className="mb-4 text-sm text-[var(--ink-subtle)]">Noch keine LOPs hier.</p>
       )}
 
-      {!open ? (
+      {!task.partId ? (
+        <p className="text-xs text-[var(--warn)]">
+          Auftrag ohne Bauteil – LOP erst möglich, wenn eine Teilenummer verknüpft ist.
+        </p>
+      ) : !open ? (
         <Button onClick={() => setOpen(true)}>LOP-Punkt anlegen</Button>
       ) : (
-        <div className="space-y-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg)] p-4">
-          <Field label="Titel">
-            <input
-              className={inputClass}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="z. B. Nahtbild nicht akzeptabel"
-            />
-          </Field>
-          <Field label="Quelle">
-            <select
-              className={inputClass}
-              value={source}
-              onChange={(e) => setSource(e.target.value as LopSource)}
-            >
-              {sources.map((s) => (
-                <option key={s} value={s}>
-                  {lopSourceLabel[s]}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Beschreibung">
-            <textarea
-              className={inputClass}
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Kurz was das Problem / der Punkt ist"
-            />
-          </Field>
-          <Field label="Fotos (optional)">
-            <LopPhotoGallery photos={photos} editable onChange={setPhotos} />
-          </Field>
-          <p className="text-xs text-[var(--ink-subtle)]">
-            Programm und Bauteil werden vom Auftrag übernommen.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={submit} disabled={!title.trim()}>
-              LOP speichern
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setOpen(false);
-                setPhotos([]);
-              }}
-            >
-              Abbrechen
-            </Button>
+        <Modal title="LOP-Punkt anlegen" size="md" onClose={() => setOpen(false)}>
+          <div className="space-y-3">
+            <Field label="Titel">
+              <input
+                className={inputClass}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="z. B. Nahtbild nicht akzeptabel"
+              />
+            </Field>
+            <Field label="Quelle">
+              <select
+                className={inputClass}
+                value={source}
+                onChange={(e) => setSource(e.target.value as LopSource)}
+              >
+                {sources.map((s) => (
+                  <option key={s} value={s}>
+                    {lopSourceLabel[s]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Beschreibung">
+              <textarea
+                className={inputClass}
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Kurz was das Problem / der Punkt ist"
+              />
+            </Field>
+            <Field label="Fotos (optional)">
+              <LopPhotoGallery photos={photos} editable onChange={setPhotos} />
+            </Field>
+            <p className="text-xs text-[var(--ink-subtle)]">
+              Programm und Bauteil werden vom Auftrag übernommen.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={submit} disabled={!title.trim()}>
+                LOP speichern
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setOpen(false);
+                  setPhotos([]);
+                }}
+              >
+                Abbrechen
+              </Button>
+            </div>
           </div>
-        </div>
+        </Modal>
       )}
     </Panel>
   );

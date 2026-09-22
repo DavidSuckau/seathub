@@ -70,6 +70,8 @@ type StoreContextValue = {
   addPart: (part: Omit<Part, "id">) => Part;
   /** Bauteil vollständig löschen (inkl. Stände; Verknüpfungen bereinigen) */
   deletePart: (partId: string) => void;
+  /** Komplettes Programm inkl. Struktur, Bauteile, Aufträge, LOPs löschen */
+  deleteProject: (projectId: string) => void;
   /** Strukturknoten: Sitzreihe, Sitzart, Modul, Bezugvariante */
   addStructureNode: (
     node: Omit<StructureNode, "id">,
@@ -915,6 +917,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           detail: part
             ? `${part.partNumber} – ${part.name}`
             : partId,
+        });
+      },
+      deleteProject: (projectId) => {
+        const project = state.projects.find((p) => p.id === projectId);
+        const partIds = new Set(
+          state.parts.filter((p) => p.projectId === projectId).map((p) => p.id),
+        );
+        mutate((prev) => ({
+          ...prev,
+          projects: prev.projects.filter((p) => p.id !== projectId),
+          structureNodes: prev.structureNodes.filter(
+            (n) => n.projectId !== projectId,
+          ),
+          parts: prev.parts.filter((p) => p.projectId !== projectId),
+          revisions: prev.revisions.filter((r) => !partIds.has(r.partId)),
+          tasks: prev.tasks.filter((t) => t.projectId !== projectId),
+          lops: prev.lops.filter((l) => l.projectId !== projectId),
+          approvals: prev.approvals.filter((a) => a.projectId !== projectId),
+        }));
+        logActivity({
+          action: "Programm gelöscht",
+          entityType: "project",
+          entityId: projectId,
+          detail: project
+            ? `${project.customer} · ${project.code}`
+            : projectId,
         });
       },
       addStructureNode: (node) => {

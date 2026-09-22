@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { CreatePartForm } from "@/components/CreatePartForm";
 import { CreateStructureForm } from "@/components/CreateStructureForm";
 import {
   type ArtFilter,
+  ArtFilterLayout,
   ModuleKindFilter,
   partMatchesArt,
 } from "@/components/ModuleKindFilter";
 import { ProgressBar } from "@/components/ProgressBar";
 import { ProjectStructureTree } from "@/components/ProjectStructureTree";
-import { AmpelBadge, PageHeader, Panel, StatusPill } from "@/components/ui";
+import { AmpelBadge, Button, PageHeader, Panel, StatusPill } from "@/components/ui";
 import {
   formatDate,
   formatDateTime,
@@ -27,7 +28,8 @@ import type { ModuleKind } from "@/lib/types";
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
-  const { state, getUser } = useStore();
+  const router = useRouter();
+  const { state, getUser, deleteProject } = useStore();
   const [standView, setStandView] = useState<"aktuell" | "alle">("aktuell");
   const [artFilter, setArtFilter] = useState<ArtFilter>("alle");
   const project = state.projects.find((p) => p.id === params.id);
@@ -85,7 +87,27 @@ export default function ProjectDetailPage() {
         eyebrow={`${project.customer} · Programm ${project.code}`}
         title={project.name}
         description={project.description}
-        actions={<AmpelBadge ampel={project.ampel} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <AmpelBadge ampel={project.ampel} />
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    `Programm ${project.code} komplett löschen? Struktur, Bauteile, Aufträge und LOPs werden entfernt.`,
+                  )
+                ) {
+                  return;
+                }
+                deleteProject(project.id);
+                router.push("/projects");
+              }}
+            >
+              Programm löschen
+            </Button>
+          </div>
+        }
       />
 
       {project.milestoneRisk ? (
@@ -139,14 +161,15 @@ export default function ProjectDetailPage() {
         </p>
       </Panel>
 
-      <div className="mb-4">
-        <ModuleKindFilter
-          value={artFilter}
-          onChange={setArtFilter}
-          available={availableArts}
-        />
-      </div>
-
+      <ArtFilterLayout
+        filter={
+          <ModuleKindFilter
+            value={artFilter}
+            onChange={setArtFilter}
+            available={availableArts}
+          />
+        }
+      >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           <CreateStructureForm projectId={project.id} />
@@ -318,6 +341,7 @@ export default function ProjectDetailPage() {
           </ul>
         </Panel>
       </div>
+      </ArtFilterLayout>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { createSeedState } from "./seed";
 import type { Lop, LopHistoryEntry, SeatHubState, Task } from "./types";
 
-export const STORAGE_KEY = "seathub-prototype-v17";
+export const STORAGE_KEY = "seathub-prototype-v18";
 
 function historyFromLegacy(lop: Lop): LopHistoryEntry[] {
   if (lop.history?.length) return lop.history;

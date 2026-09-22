@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { CreateProgramWizard } from "@/components/CreateProgramWizard";
 import {
   type ArtFilter,
+  ArtFilterLayout,
   ModuleKindFilter,
   partMatchesArt,
 } from "@/components/ModuleKindFilter";
@@ -67,14 +68,15 @@ export default function ProjectsPage() {
         </Modal>
       ) : null}
 
-      <div className="mb-6">
-        <ModuleKindFilter
-          value={artFilter}
-          onChange={setArtFilter}
-          available={availableArts}
-        />
-      </div>
-
+      <ArtFilterLayout
+        filter={
+          <ModuleKindFilter
+            value={artFilter}
+            onChange={setArtFilter}
+            available={availableArts}
+          />
+        }
+      >
       <div className="space-y-8">
         {byCustomer.length === 0 ? (
           <p className="text-sm text-[var(--ink-subtle)]">
@@ -184,6 +186,7 @@ export default function ProjectsPage() {
           </section>
         ))}
       </div>
+      </ArtFilterLayout>
     </div>
   );
 }
