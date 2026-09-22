@@ -12,6 +12,7 @@ import {
 } from "@/components/LinkExistingProfileForm";
 import { PartLopPanel } from "@/components/PartLopPanel";
 import { Button, PageHeader, Panel, StatusPill, inputClass } from "@/components/ui";
+import { navigate } from "@/lib/nav";
 import {
   getChildComponents,
   getUsedOnPartIds,
@@ -122,7 +123,7 @@ function PartDetailInner() {
               onClick={() => {
                 const projectId = part.projectId;
                 deletePart(part.id);
-                window.location.href = `/projects/${projectId}`;
+                navigate(`/projects/${projectId}`);
               }}
             >
               Endgültig löschen
@@ -270,7 +271,7 @@ function PartDetailInner() {
         <CreatePartOrderForm
           part={part}
           onCreated={(t) => {
-            window.location.href = `/tasks/${t.id}`;
+            navigate(`/tasks/${t.id}`);
           }}
         />
       </div>
@@ -301,7 +302,7 @@ function PartDetailInner() {
           part={part}
           onDone={(rev) => {
             setShowLoop(false);
-            window.location.href = `/parts/${part.id}?stand=${rev}`;
+            navigate(`/parts/${part.id}?stand=${rev}`);
           }}
           onCancel={() => setShowLoop(false)}
         />

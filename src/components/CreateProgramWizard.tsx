@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
+import { navigate } from "@/lib/nav";
 import {
   ARMREST_HOLE_OPTIONS,
   BUILTIN_PROGRAM_TEMPLATES,
@@ -155,7 +156,7 @@ export function CreateProgramWizard({
     };
     const project = addConfiguredProject(config);
     onCreated?.(project.id);
-    window.location.href = `/projects/${project.id}`;
+    navigate(`/projects/${project.id}`);
   }
 
   function saveCurrentAsTemplate() {

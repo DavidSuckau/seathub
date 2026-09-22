@@ -7,6 +7,7 @@ import { Button, Field, Modal, Panel, StatusPill, inputClass } from "@/component
 import { lopSourceLabel, lopStatusLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, LopSource, Task } from "@/lib/types";
+import { navigate } from "@/lib/nav";
 
 const sources = Object.keys(lopSourceLabel) as LopSource[];
 
@@ -59,7 +60,7 @@ export function TaskLopPanel({ task }: { task: Task }) {
     setTitle("");
     setDescription("");
     setPhotos([]);
-    window.location.href = `/lops/${created.id}`;
+    navigate(`/lops/${created.id}`);
   }
 
   return (

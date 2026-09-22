@@ -11,6 +11,7 @@ import { TaskLopPanel } from "@/components/TaskLopPanel";
 import { TaskProfilePanel } from "@/components/TaskProfilePanel";
 import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
 import { NextAction } from "@/components/NextAction";
+import { navigate } from "@/lib/nav";
 import {
   formatDateTime,
   formatDuration,
@@ -111,7 +112,7 @@ export default function TaskDetailPage() {
       const go = window.confirm(
         `Folgeauftrag erzeugt:\n${result.followUp.title}\n\nJetzt öffnen?`,
       );
-      if (go) window.location.href = `/tasks/${result.followUp.id}`;
+      if (go) navigate(`/tasks/${result.followUp.id}`);
       return;
     }
     if (result.pendingProposal) {
@@ -123,7 +124,7 @@ export default function TaskDetailPage() {
 
   function acceptProposal() {
     const created = acceptFollowUpProposal(task!.id);
-    if (created) window.location.href = `/tasks/${created.id}`;
+    if (created) navigate(`/tasks/${created.id}`);
   }
 
   function onStatusChange(next: TaskStatus) {

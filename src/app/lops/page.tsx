@@ -12,6 +12,7 @@ import {
   StatusPill,
   inputClass,
 } from "@/components/ui";
+import { navigate } from "@/lib/nav";
 import {
   type ArtFilter,
   ArtFilterLayout,
@@ -103,7 +104,7 @@ export default function LopsPage() {
     });
     setShowForm(false);
     setFormPhotos([]);
-    window.location.href = `/lops/${created.id}`;
+    navigate(`/lops/${created.id}`);
   }
 
   const partsForProject = state.parts

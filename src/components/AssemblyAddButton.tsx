@@ -7,6 +7,7 @@ import { taskTypeLabel } from "@/lib/labels";
 import { orderTypeDepartment } from "@/lib/orders";
 import { useStore } from "@/lib/store";
 import type { Part, PartKind } from "@/lib/types";
+import { navigate } from "@/lib/nav";
 
 type Mode =
   | null
@@ -135,12 +136,12 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
         description: `Erstzeichnung für ${thing} ${created.name} (${created.partNumber}) am Bezug ${parent.partNumber}. Eingestellt von ${currentUser?.name ?? "User"}.`,
       });
       close();
-      window.location.href = `/tasks/${task.id}`;
+      navigate(`/tasks/${task.id}`);
       return;
     }
 
     close();
-    window.location.href = `/parts/${created.id}`;
+    navigate(`/parts/${created.id}`);
   }
 
   const thingLabel = kindLabel[form.partKind] ?? "Komponente";
