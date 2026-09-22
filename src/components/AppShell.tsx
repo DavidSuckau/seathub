@@ -22,6 +22,9 @@ function navForRole(
     case "mitarbeiter":
       return [
         { href: "/dashboard", label: "Mein Tag" },
+        { href: "/platform", label: "Plattform" },
+        { href: "/flows", label: "Flows" },
+        { href: "/agents", label: "Agenten" },
         { href: "/calendar", label: "Kalender" },
         { href: "/tasks", label: "Aufträge" },
         { href: myDeptHref, label: "Meine Abteilung" },
@@ -32,6 +35,9 @@ function navForRole(
     case "manager":
       return [
         { href: "/management", label: "Management" },
+        { href: "/platform", label: "Plattform" },
+        { href: "/flows", label: "Flows" },
+        { href: "/agents", label: "Agenten" },
         { href: "/dashboard", label: "Mein Tag" },
         { href: "/calendar", label: "Kalender" },
         { href: "/departments", label: "Abteilungen", exact: true },
@@ -44,6 +50,9 @@ function navForRole(
     case "engineering":
       return [
         { href: "/dashboard", label: "Mein Tag" },
+        { href: "/platform", label: "Plattform" },
+        { href: "/flows", label: "Flows" },
+        { href: "/agents", label: "Agenten" },
         { href: "/calendar", label: "Kalender" },
         { href: myDeptHref, label: "Meine Abteilung" },
         { href: "/projects", label: "Projekte" },

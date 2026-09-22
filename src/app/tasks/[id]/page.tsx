@@ -26,18 +26,24 @@ import {
   taskTypeLabel,
 } from "@/lib/labels";
 import { orderPreferredSkills, orderTypeDepartment } from "@/lib/orders";
+import { suggestAssignees } from "@/lib/platform";
 import { useStore } from "@/lib/store";
 import type { TaskStatus } from "@/lib/types";
 
 export default function TaskDetailPage() {
   const params = useParams<{ id: string }>();
-  const { state, updateTask, startDevelopmentLoop, getProject, getUser, getPart } =
+  const { state, updateTask, startDevelopmentLoop, getProject, getUser, getPart, toggleTaskChecklist, completeTaskAutomated } =
     useStore();
   const task = state.tasks.find((t) => t.id === params.id);
   const [rejectReason, setRejectReason] = useState("");
   const [showReject, setShowReject] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [pickId, setPickId] = useState("");
+
+  const agentSuggestions = useMemo(
+    () => (task ? suggestAssignees(state.users, task.type, 3) : []),
+    [task, state.users],
+  );
 
   const candidates = useMemo(() => {
     if (!task) return [];
@@ -87,18 +93,28 @@ export default function TaskDetailPage() {
   }
 
   function completeWithTime(minutes: number) {
-    updateTask(task!.id, {
-      status: "erledigt",
-      progress: 100,
-      timeSpentMinutes: minutes,
-      completedAt: new Date().toISOString(),
-      startedAt: task!.startedAt ?? task!.createdAt,
-    });
+    const result = completeTaskAutomated(task!.id, minutes);
+    if (!result.ok) {
+      window.alert(result.reason ?? "Abschluss nicht möglich");
+      return;
+    }
     setShowComplete(false);
+    if (result.followUp) {
+      const go = window.confirm(
+        `Folgeauftrag erzeugt:\n${result.followUp.title}\n\nJetzt öffnen?`,
+      );
+      if (go) {
+        window.location.href = `/tasks/${result.followUp.id}`;
+      }
+    }
   }
 
   function onStatusChange(next: TaskStatus) {
     if (isDoneStatus(next) && !(task!.timeSpentMinutes && task!.timeSpentMinutes > 0)) {
+      if (task!.checklist?.length && !task!.checklist.every((c) => c.done)) {
+        window.alert("Bitte zuerst die Checkliste vollständig abhaken.");
+        return;
+      }
       setShowComplete(true);
       return;
     }
@@ -143,6 +159,14 @@ export default function TaskDetailPage() {
         {task.timeSpentMinutes != null && task.timeSpentMinutes > 0 ? (
           <StatusPill tone="ok">Dauer {formatDuration(task.timeSpentMinutes)}</StatusPill>
         ) : null}
+        {task.flowId ? (
+          <Link href="/flows">
+            <StatusPill tone="accent">
+              Flow:{" "}
+              {state.flows?.find((f) => f.id === task.flowId)?.name ?? "aktiv"}
+            </StatusPill>
+          </Link>
+        ) : null}
         {waiting ? <StatusPill tone="warn">Zuweisung offen</StatusPill> : null}
         {creator ? (
           <span className="text-sm text-[var(--ink-muted)]">
@@ -161,11 +185,78 @@ export default function TaskDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
         <div className="space-y-6">
+          {(task.checklist?.length ?? 0) > 0 ? (
+            <Panel title="Checkliste (Pflicht vor Abschluss)">
+              <p className="mb-3 text-sm text-[var(--ink-muted)]">
+                Agenten und Flows verlangen standardisierte Schritte – erst dann
+                kann der Auftrag erledigt werden
+                {task.flowId ? " und der nächste Flow-Schritt starten" : ""}.
+              </p>
+              <ul className="space-y-2">
+                {task.checklist!.map((c) => (
+                  <li key={c.id}>
+                    <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                        checked={c.done}
+                        onChange={() => toggleTaskChecklist(task.id, c.id)}
+                        disabled={done}
+                      />
+                      <span
+                        className={
+                          c.done
+                            ? "text-[var(--ink-subtle)] line-through"
+                            : "text-[var(--ink)]"
+                        }
+                      >
+                        {c.label}
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-[var(--ink-subtle)]">
+                {task.checklist!.filter((c) => c.done).length}/
+                {task.checklist!.length} erledigt
+              </p>
+            </Panel>
+          ) : null}
+
           {waiting ? (
             <Panel title={`Mitarbeiter zuweisen · ${dept?.name}`}>
               <p className="mb-3 text-sm text-[var(--ink-muted)]">
-                Vorschläge nach Abteilung und passenden Skills.
+                Abt.-Leiter-Agent schlägt nach Skills und Kapazität vor – Mensch
+                entscheidet.
               </p>
+              {agentSuggestions.length > 0 ? (
+                <div className="mb-4 rounded-[var(--radius)] border border-[var(--accent)]/25 bg-[var(--accent-soft)] px-3 py-2.5">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
+                    Agent-Empfehlung Top 3
+                  </p>
+                  <ul className="space-y-2">
+                    {agentSuggestions.map((s, i) => (
+                      <li
+                        key={s.user.id}
+                        className="flex flex-wrap items-center justify-between gap-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-[var(--ink)]">
+                            {i + 1}. {s.user.name}
+                          </p>
+                          <p className="text-xs text-[var(--ink-muted)]">
+                            Score {Math.round(s.score)} ·{" "}
+                            {s.reasons.slice(0, 2).join(" · ")}
+                          </p>
+                        </div>
+                        <Button onClick={() => assignTo(s.user.id)}>
+                          Zuordnen
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <ul className="mb-4 space-y-2">
                 {candidates.map(({ user, skillScore }) => (
                   <li
@@ -179,7 +270,9 @@ export default function TaskDetailPage() {
                         {skillScore > 0 ? ` · Skill-Score ${skillScore}` : ""}
                       </p>
                     </div>
-                    <Button onClick={() => assignTo(user.id)}>Zuordnen</Button>
+                    <Button variant="secondary" onClick={() => assignTo(user.id)}>
+                      Zuordnen
+                    </Button>
                   </li>
                 ))}
               </ul>

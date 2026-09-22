@@ -10,11 +10,11 @@ function primaryCta(role: DemoRole, deptId?: string) {
     case "extern":
       return { href: "/external", label: "Meine Aufträge öffnen" };
     case "manager":
-      return { href: "/management", label: "Management öffnen" };
+      return { href: "/platform", label: "Plattform präsentieren" };
     case "engineering":
-      return { href: "/dashboard", label: "Mein Tag öffnen" };
+      return { href: "/platform", label: "Plattform öffnen" };
     default:
-      return { href: "/dashboard", label: "Mein Tag öffnen" };
+      return { href: "/platform", label: "Plattform öffnen" };
   }
 }
 
@@ -50,17 +50,17 @@ function roleCards(role: DemoRole) {
   }
   if (role === "manager") {
     return [
+      { href: "/platform", title: "Plattform", text: "Flows, Agenten, Demo-Drehbuch" },
       { href: "/management", title: "Management", text: "Ampeln, Kapazität, Drill-down" },
-      { href: "/departments", title: "Abteilungen", text: "Zuweisung, Teamlast, LOPs" },
-      { href: "/lops", title: "LOP-Management", text: "Offene Punkte über alle Ebenen" },
-      { href: "/org", title: "Organisation", text: "Standorte → Abteilungen → Leute" },
+      { href: "/flows", title: "Flow-Generator", text: "Prozesse als Nodes" },
+      { href: "/agents", title: "KI-Agenten", text: "Digitale Zwillinge live" },
     ];
   }
   return [
+    { href: "/platform", title: "Plattform", text: "Flows & Agenten präsentieren" },
     { href: "/dashboard", title: "Mein Tag", text: "Offene Aufträge, LOPs, Risiken" },
-    { href: "/tasks", title: "Aufträge", text: "Meine und Abteilungsaufträge" },
-    { href: "/lops", title: "LOPs", text: "Liste offener Punkte" },
-    { href: "/projects", title: "Projekte", text: "Programme, Struktur, Freigabe-%" },
+    { href: "/flows", title: "Flows", text: "Prozess starten, Folgeaufträge" },
+    { href: "/agents", title: "Agenten", text: "Zuweisung & Insights" },
   ];
 }
 

@@ -10,6 +10,14 @@ import {
   type ReactNode,
 } from "react";
 import { taskStatusLabel, uid } from "./labels";
+import { orderTypeDepartment } from "./orders";
+import {
+  buildChecklist,
+  checklistComplete,
+  checklistForTaskType,
+  firstAuftragNode,
+  nextFlowNode,
+} from "./platform";
 import {
   applyComponentDecisions,
   carryOverComponentStands,
@@ -31,6 +39,8 @@ import type {
   Part,
   ProgramCreateConfig,
   ProgramTemplate,
+  ProcessFlow,
+  AgentInsight,
   Revision,
   SeatHubState,
   StructureNode,
@@ -51,6 +61,26 @@ type StoreContextValue = {
   logActivity: (partial: Omit<Activity, "id" | "at" | "actorUserId"> & { actorUserId?: string }) => void;
   addTask: (task: Omit<Task, "id" | "createdAt">) => Task;
   updateTask: (id: string, patch: Partial<Task>) => void;
+  /** Checklistenpunkt abhaken */
+  toggleTaskChecklist: (taskId: string, itemId: string) => void;
+  /** Auftrag über Flow starten (erste Auftrag-Node) */
+  startProcessFlow: (input: {
+    flowId: string;
+    projectId: string;
+    partId: string;
+    title?: string;
+  }) => Task | null;
+  /**
+   * Auftrag erledigen: Checkliste Pflicht, dann optional Folgeauftrag laut Flow.
+   * Gibt den Folgeauftrag zurück, falls erzeugt.
+   */
+  completeTaskAutomated: (
+    taskId: string,
+    timeSpentMinutes: number,
+  ) => { ok: boolean; reason?: string; followUp?: Task };
+  updateFlow: (id: string, patch: Partial<ProcessFlow>) => void;
+  moveFlowNode: (flowId: string, nodeId: string, x: number, y: number) => void;
+  pushAgentInsight: (insight: Omit<AgentInsight, "id" | "at"> & { at?: string }) => void;
   addLop: (
     lop: Omit<Lop, "id" | "createdAt" | "history" | "photos"> & {
       history?: LopHistoryEntry[];
@@ -268,6 +298,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addTask: (task) => {
         const createdAt = new Date().toISOString();
         const actorId = task.createdByUserId ?? "";
+        const checklist =
+          task.checklist?.length
+            ? task.checklist
+            : buildChecklist(checklistForTaskType[task.type] ?? []);
         const history: TaskHistoryEntry[] = [
           {
             id: uid(),
@@ -291,6 +325,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           id: uid(),
           createdAt,
           history,
+          checklist,
         };
         mutate((prev) => {
           const withNames = {
@@ -421,6 +456,279 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           entityId: id,
           detail: Object.keys(patch).join(", "),
         });
+      },
+      toggleTaskChecklist: (taskId, itemId) => {
+        mutate((prev) => {
+          const now = new Date().toISOString();
+          return {
+            ...prev,
+            tasks: prev.tasks.map((t) => {
+              if (t.id !== taskId || !t.checklist) return t;
+              return {
+                ...t,
+                checklist: t.checklist.map((c) =>
+                  c.id === itemId
+                    ? {
+                        ...c,
+                        done: !c.done,
+                        doneAt: !c.done ? now : undefined,
+                        doneByUserId: !c.done ? prev.currentUserId : undefined,
+                      }
+                    : c,
+                ),
+              };
+            }),
+          };
+        });
+      },
+      startProcessFlow: (input) => {
+        const flow = state.flows?.find((f) => f.id === input.flowId);
+        if (!flow) return null;
+        const node = firstAuftragNode(flow);
+        if (!node?.taskType) return null;
+        const labels =
+          node.checklistLabels ??
+          checklistForTaskType[node.taskType] ??
+          [];
+        const createdAt = new Date().toISOString();
+        const created: Task = {
+          id: uid(),
+          title:
+            input.title?.trim() ||
+            `${node.label} · Flow ${flow.name}`,
+          type: node.taskType,
+          status: "offen",
+          projectId: input.projectId,
+          partId: input.partId,
+          departmentId:
+            node.departmentId ?? orderTypeDepartment[node.taskType],
+          createdByUserId: state.currentUserId,
+          needsAssignment: true,
+          priority: "hoch",
+          dueDate: "2026-10-15",
+          progress: 0,
+          description: `Gestartet über Flow „${flow.name}“. Agenten begleiten den Prozess.`,
+          createdAt,
+          flowId: flow.id,
+          flowNodeId: node.id,
+          checklist: buildChecklist(labels),
+          history: [
+            {
+              id: uid(),
+              at: createdAt,
+              actorUserId: state.currentUserId,
+              action: "Flow gestartet",
+              detail: flow.name,
+            },
+          ],
+        };
+        mutate((prev) => ({
+          ...prev,
+          tasks: [created, ...prev.tasks],
+          agentInsights: [
+            {
+              id: uid(),
+              agentId: node.agentId ?? "ag-lead",
+              at: createdAt,
+              title: `Flow gestartet: ${flow.name}`,
+              detail: `Erster Schritt „${node.label}“ angelegt.`,
+              severity: "info" as const,
+              href: `/tasks/${created.id}`,
+              actionLabel: "Auftrag öffnen",
+            },
+            ...(prev.agentInsights ?? []),
+          ].slice(0, 40),
+        }));
+        logActivity({
+          action: "Prozess-Flow gestartet",
+          entityType: "flow",
+          entityId: flow.id,
+          detail: created.title,
+        });
+        return created;
+      },
+      completeTaskAutomated: (taskId, timeSpentMinutes) => {
+        const task = state.tasks.find((t) => t.id === taskId);
+        if (!task) return { ok: false, reason: "Auftrag nicht gefunden" };
+        if (!checklistComplete(task.checklist)) {
+          return { ok: false, reason: "Checkliste noch nicht vollständig" };
+        }
+        const now = new Date().toISOString();
+        let followUp: Task | undefined;
+        const flow = task.flowId
+          ? state.flows?.find((f) => f.id === task.flowId)
+          : undefined;
+        let next = task.flowNodeId && flow
+          ? nextFlowNode(flow, task.flowNodeId)
+          : undefined;
+        // Skip non-auftrag nodes until next auftrag or ende
+        let guard = 0;
+        while (next && next.kind !== "auftrag" && next.kind !== "ende" && guard < 10) {
+          next = nextFlowNode(flow!, next.id);
+          guard++;
+        }
+        if (
+          flow &&
+          flow.mode === "auto" &&
+          next?.kind === "auftrag" &&
+          next.taskType &&
+          task.partId
+        ) {
+          const labels =
+            next.checklistLabels ??
+            checklistForTaskType[next.taskType] ??
+            [];
+          followUp = {
+            id: uid(),
+            title: `${next.label} · Folge aus ${task.title}`,
+            type: next.taskType,
+            status: "offen",
+            projectId: task.projectId,
+            partId: task.partId,
+            revisionStand: task.revisionStand,
+            departmentId:
+              next.departmentId ?? orderTypeDepartment[next.taskType],
+            createdByUserId: state.currentUserId,
+            needsAssignment: true,
+            priority: task.priority,
+            dueDate: task.dueDate,
+            progress: 0,
+            description: `Automatisch erzeugt durch Flow „${flow.name}“ nach Abschluss von „${task.title}“.`,
+            createdAt: now,
+            flowId: flow.id,
+            flowNodeId: next.id,
+            checklist: buildChecklist(labels),
+            history: [
+              {
+                id: uid(),
+                at: now,
+                actorUserId: state.currentUserId,
+                action: "Folgeauftrag (Flow)",
+                detail: `Aus ${task.id}`,
+              },
+            ],
+          };
+        }
+
+        mutate((prev) => {
+          const insights = [...(prev.agentInsights ?? [])];
+          if (followUp) {
+            insights.unshift({
+              id: uid(),
+              agentId: "ag-lead",
+              at: now,
+              title: "Folgeauftrag erzeugt",
+              detail: followUp.title,
+              severity: "ok",
+              href: `/tasks/${followUp.id}`,
+              actionLabel: "Öffnen",
+            });
+          } else if (flow) {
+            insights.unshift({
+              id: uid(),
+              agentId: "ag-termin",
+              at: now,
+              title: "Flow-Schritt abgeschlossen",
+              detail: task.title,
+              severity: "ok",
+            });
+          }
+          return {
+            ...prev,
+            tasks: [
+              ...(followUp ? [followUp] : []),
+              ...prev.tasks.map((t) => {
+                if (t.id !== taskId) return t;
+                return {
+                  ...t,
+                  status: "erledigt" as const,
+                  progress: 100,
+                  completedAt: now,
+                  timeSpentMinutes,
+                  history: [
+                    ...(t.history ?? []),
+                    {
+                      id: uid(),
+                      at: now,
+                      actorUserId: prev.currentUserId,
+                      action: "Status geändert",
+                      detail: `${taskStatusLabel[t.status]} → Erledigt`,
+                    },
+                    {
+                      id: uid(),
+                      at: now,
+                      actorUserId: prev.currentUserId,
+                      action: "Zeit dokumentiert",
+                      detail: `${timeSpentMinutes} Min.`,
+                    },
+                    ...(followUp
+                      ? [
+                          {
+                            id: uid(),
+                            at: now,
+                            actorUserId: prev.currentUserId,
+                            action: "Folgeauftrag gestartet",
+                            detail: followUp.title,
+                          },
+                        ]
+                      : []),
+                  ],
+                };
+              }),
+            ],
+            agentInsights: insights.slice(0, 40),
+          };
+        });
+        logActivity({
+          action: followUp
+            ? "Auftrag erledigt + Folgeauftrag"
+            : "Auftrag erledigt",
+          entityType: "task",
+          entityId: taskId,
+          detail: followUp?.title,
+        });
+        return { ok: true, followUp };
+      },
+      updateFlow: (id, patch) => {
+        mutate((prev) => ({
+          ...prev,
+          flows: (prev.flows ?? []).map((f) =>
+            f.id === id ? { ...f, ...patch } : f,
+          ),
+        }));
+      },
+      moveFlowNode: (flowId, nodeId, x, y) => {
+        mutate((prev) => ({
+          ...prev,
+          flows: (prev.flows ?? []).map((f) =>
+            f.id !== flowId
+              ? f
+              : {
+                  ...f,
+                  nodes: f.nodes.map((n) =>
+                    n.id === nodeId ? { ...n, x, y } : n,
+                  ),
+                },
+          ),
+        }));
+      },
+      pushAgentInsight: (insight) => {
+        mutate((prev) => ({
+          ...prev,
+          agentInsights: [
+            {
+              id: uid(),
+              at: insight.at ?? new Date().toISOString(),
+              agentId: insight.agentId,
+              title: insight.title,
+              detail: insight.detail,
+              severity: insight.severity,
+              actionLabel: insight.actionLabel,
+              href: insight.href,
+            },
+            ...(prev.agentInsights ?? []),
+          ].slice(0, 40),
+        }));
       },
       addLop: (lop) => {
         const createdAt = new Date().toISOString();

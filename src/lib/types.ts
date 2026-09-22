@@ -396,6 +396,95 @@ export interface Task {
   timeSpentMinutes?: number;
   /** Chronik: Zuweisung, Status, Titel – wer hat was geändert */
   history?: TaskHistoryEntry[];
+  /** Zugehöriger Prozess-Flow (Flow-Generator) */
+  flowId?: string;
+  /** Aktueller Flow-Knoten in diesem Auftrag */
+  flowNodeId?: string;
+  /** Checklistenpunkte vor Abschluss */
+  checklist?: ChecklistItem[];
+}
+
+export interface ChecklistItem {
+  id: string;
+  label: string;
+  done: boolean;
+  doneAt?: string;
+  doneByUserId?: string;
+}
+
+/** Node-Arten im Flow-Generator */
+export type FlowNodeKind =
+  | "start"
+  | "auftrag"
+  | "abteilung"
+  | "agent"
+  | "freigabe"
+  | "lager"
+  | "standort"
+  | "ende";
+
+export interface FlowNode {
+  id: string;
+  kind: FlowNodeKind;
+  label: string;
+  x: number;
+  y: number;
+  /** Bei kind === "auftrag" */
+  taskType?: TaskType;
+  departmentId?: DepartmentId;
+  agentId?: string;
+  /** Checkliste, die beim Erzeugen dieses Schritts angehängt wird */
+  checklistLabels?: string[];
+}
+
+export interface FlowEdge {
+  id: string;
+  from: string;
+  to: string;
+}
+
+/** Prozessvorlage aus dem Flow-Generator */
+export interface ProcessFlow {
+  id: string;
+  name: string;
+  description: string;
+  /** auto = Folgeauftrag ohne Nachfrage */
+  mode: "vorschlagen" | "auto";
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  active: boolean;
+}
+
+export type AgentKind =
+  | "entwicklung"
+  | "cad"
+  | "dokumentation"
+  | "ressourcen"
+  | "lager"
+  | "termin"
+  | "qualitaet"
+  | "abteilungsleiter"
+  | "wissen";
+
+export interface PlatformAgent {
+  id: string;
+  kind: AgentKind;
+  name: string;
+  role: string;
+  description: string;
+  status: "aktiv" | "beobachtet" | "idle";
+  focus: string[];
+}
+
+export interface AgentInsight {
+  id: string;
+  agentId: string;
+  at: string;
+  title: string;
+  detail: string;
+  severity: "info" | "ok" | "warn" | "kritisch";
+  actionLabel?: string;
+  href?: string;
 }
 
 /** Chronik-Eintrag am Auftrag (analog LOP) */
@@ -497,4 +586,10 @@ export interface SeatHubState {
   activityLog: Activity[];
   /** Eigene Programm-Vorlagen (Archiv), zusätzlich zu den Built-ins */
   programTemplates?: ProgramTemplate[];
+  /** Flow-Generator: Prozessvorlagen */
+  flows?: ProcessFlow[];
+  /** Digitale Agenten / Zwillinge */
+  agents?: PlatformAgent[];
+  /** Laufende Agenten-Insights für Präsentation */
+  agentInsights?: AgentInsight[];
 }

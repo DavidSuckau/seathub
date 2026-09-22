@@ -1,4 +1,9 @@
 import type { SeatHubState } from "./types";
+import {
+  createDemoAgents,
+  createDemoFlows,
+  createDemoInsights,
+} from "./platform";
 
 const ids = {
   frank: "u-frank",
@@ -23,7 +28,7 @@ const ids = {
 
 export function createSeedState(): SeatHubState {
   return {
-    version: 18,
+    version: 19,
     currentUserId: ids.anna,
     demoRole: "mitarbeiter",
     departments: [
@@ -2169,5 +2174,8 @@ export function createSeedState(): SeatHubState {
       },
     ],
     programTemplates: [],
+    flows: createDemoFlows(),
+    agents: createDemoAgents(),
+    agentInsights: createDemoInsights(),
   };
 }
