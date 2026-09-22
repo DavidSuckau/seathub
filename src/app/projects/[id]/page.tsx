@@ -13,6 +13,7 @@ import {
 } from "@/components/ModuleKindFilter";
 import { ProgressBar } from "@/components/ProgressBar";
 import { ProjectStructureTree } from "@/components/ProjectStructureTree";
+import { PartImageThumb } from "@/components/PartHauptbild";
 import { AmpelBadge, Button, PageHeader, Panel, StatusPill } from "@/components/ui";
 import {
   formatDate,
@@ -229,10 +230,13 @@ export default function ProjectDetailPage() {
                   href={`/parts/${part.id}`}
                   className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm hover:bg-[var(--bg-elevated)]"
                 >
-                  <span>
-                    <span className="font-mono text-[var(--accent)]">{part.partNumber}</span>
-                    <span className="text-[var(--ink-subtle)]"> · </span>
-                    {part.name}
+                  <span className="flex min-w-0 items-center gap-3">
+                    <PartImageThumb part={part} size="sm" />
+                    <span>
+                      <span className="font-mono text-[var(--accent)]">{part.partNumber}</span>
+                      <span className="text-[var(--ink-subtle)]"> · </span>
+                      {part.name}
+                    </span>
                   </span>
                   <StatusPill tone="warn">
                     Ohne Freigabe · Stand {part.currentRevision}

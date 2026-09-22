@@ -7,6 +7,7 @@ import {
   nodeMatchesArt,
   partMatchesArt,
 } from "@/components/ModuleKindFilter";
+import { PartImageThumb } from "@/components/PartHauptbild";
 import { StatusPill } from "@/components/ui";
 import { isComponentPart } from "@/lib/components";
 import { getPartRevisions, revisionStatusLabel } from "@/lib/revisions";
@@ -69,27 +70,7 @@ function PartRow({
         href={`/parts/${part.id}?stand=${part.currentRevision}`}
         className="org-node flex items-start gap-2.5 px-2.5 py-2.5 hover:bg-[var(--bg-elevated)]"
       >
-        <span
-          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${
-            part.moduleKind === "schnittstelle"
-              ? "bg-[var(--warm-soft)] text-[var(--warm)]"
-              : part.moduleKind === "schaum"
-                ? "bg-[var(--ok-soft)] text-[var(--ok)]"
-                : part.moduleKind === "kunststoff" || part.moduleKind === "struktur"
-                  ? "bg-[var(--bg-elevated)] text-[var(--ink-muted)]"
-                  : "bg-[var(--accent-soft)] text-[var(--accent)]"
-          }`}
-        >
-          {part.moduleKind === "bezug" || !part.moduleKind
-            ? "BZ"
-            : part.moduleKind === "schnittstelle"
-              ? "SS"
-              : part.moduleKind === "kunststoff"
-                ? "KS"
-                : part.moduleKind === "schaum"
-                  ? "SC"
-                  : "ST"}
-        </span>
+        <PartImageThumb part={part} size="sm" className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-[var(--ink)]">
             <span className="font-mono text-[13px] text-[var(--accent)]">{part.partNumber}</span>

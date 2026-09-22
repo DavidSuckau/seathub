@@ -11,6 +11,7 @@ import {
   SharedImpactBanner,
 } from "@/components/LinkExistingProfileForm";
 import { PartLopPanel } from "@/components/PartLopPanel";
+import { PartHauptbild, PartImageThumb } from "@/components/PartHauptbild";
 import { Button, PageHeader, Panel, StatusPill, inputClass } from "@/components/ui";
 import { navigate, taskPath, navigateToTask } from "@/lib/nav";
 import {
@@ -38,7 +39,7 @@ import {
 function PartDetailInner() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
-  const { state, relaunchStand, updateRevision, deletePart, getProject, getUser } =
+  const { state, relaunchStand, updateRevision, deletePart, updatePart, getProject, getUser } =
     useStore();
   const part = state.parts.find((p) => p.id === params.id);
   const [showLoop, setShowLoop] = useState(false);
@@ -156,6 +157,11 @@ function PartDetailInner() {
         </Link>
       </div>
 
+      <PartHauptbild
+        part={part}
+        onChange={(imageUrl) => updatePart(part.id, { imageUrl })}
+      />
+
       {(part.partKind === "profil" || part.partKind === "befestigung") &&
       parentAssemblies.length > 0 ? (
         <>
@@ -222,7 +228,9 @@ function PartDetailInner() {
                       key={c.id}
                       className="flex flex-wrap items-center justify-between gap-2 py-3"
                     >
-                      <div>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <PartImageThumb part={c} size="sm" />
+                        <div>
                         <Link
                           href={`/parts/${c.id}`}
                           className="font-medium hover:text-[var(--accent)]"
@@ -239,6 +247,7 @@ function PartDetailInner() {
                             ? ` · geteilt (${getUsedOnPartIds(c).length} Bezüge)`
                             : ""}
                         </p>
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {cShared ? <StatusPill tone="watch">geteilt</StatusPill> : null}

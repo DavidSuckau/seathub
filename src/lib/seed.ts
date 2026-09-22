@@ -4,6 +4,7 @@ import {
   createDemoFlows,
   createDemoInsights,
 } from "./platform";
+import { withDemoPartImages } from "./part-images";
 
 const ids = {
   frank: "u-frank",
@@ -27,7 +28,7 @@ const ids = {
 };
 
 export function createSeedState(): SeatHubState {
-  return {
+  const seed: SeatHubState = {
     version: 19,
     currentUserId: ids.anna,
     demoRole: "mitarbeiter",
@@ -2177,5 +2178,9 @@ export function createSeedState(): SeatHubState {
     flows: createDemoFlows(),
     agents: createDemoAgents(),
     agentInsights: createDemoInsights(),
+  };
+  return {
+    ...seed,
+    parts: withDemoPartImages(seed.parts),
   };
 }

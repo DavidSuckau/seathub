@@ -1,7 +1,8 @@
 import { createSeedState } from "./seed";
+import { pickDemoPartImage } from "./part-images";
 import type { Lop, LopHistoryEntry, SeatHubState, Task } from "./types";
 
-export const STORAGE_KEY = "seathub-prototype-v21";
+export const STORAGE_KEY = "seathub-prototype-v22";
 
 function historyFromLegacy(lop: Lop): LopHistoryEntry[] {
   if (lop.history?.length) return lop.history;
@@ -64,6 +65,16 @@ function normalize(state: SeatHubState): SeatHubState {
       history: taskHistoryFromLegacy(t),
       checklist: t.checklist ?? [],
     })),
+    parts: (state.parts ?? seed.parts).map((p) => {
+      const fromSeed = seed.parts.find((s) => s.id === p.id);
+      return {
+        ...p,
+        imageUrl:
+          p.imageUrl?.trim() ||
+          fromSeed?.imageUrl ||
+          pickDemoPartImage(p),
+      };
+    }),
   };
 }
 

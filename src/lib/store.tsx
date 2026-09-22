@@ -31,6 +31,7 @@ import { nextRevisionNumber } from "./revisions";
 import { loadState, resetState, saveState } from "./storage";
 import { supplyScopeLabel } from "./structure";
 import { expandCoverLabels, seatDisplayLabel } from "./program-templates";
+import { pickDemoPartImage } from "./part-images";
 import { taskPath } from "@/lib/nav";
 import type {
   Activity,
@@ -126,6 +127,7 @@ type StoreContextValue = {
   addRevision: (rev: Omit<Revision, "id">) => Revision;
   updateRevision: (id: string, patch: Partial<Revision>) => void;
   addPart: (part: Omit<Part, "id">) => Part;
+  updatePart: (partId: string, patch: Partial<Part>) => void;
   /** Bauteil vollständig löschen (inkl. Stände; Verknüpfungen bereinigen) */
   deletePart: (partId: string) => void;
   /** Komplettes Programm inkl. Struktur, Bauteile, Aufträge, LOPs löschen */
@@ -1470,7 +1472,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
       },
       addPart: (part) => {
-        const created: Part = { ...part, id: uid() };
+        const created: Part = {
+          ...part,
+          id: uid(),
+          imageUrl: part.imageUrl?.trim() || pickDemoPartImage(part),
+        };
         mutate((prev) => ({ ...prev, parts: [...prev.parts, created] }));
         logActivity({
           action: "Bauteil angelegt",
@@ -1479,6 +1485,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           detail: `${created.partNumber} – ${created.name}`,
         });
         return created;
+      },
+      updatePart: (partId, patch) => {
+        mutate((prev) => ({
+          ...prev,
+          parts: prev.parts.map((p) => (p.id === partId ? { ...p, ...patch } : p)),
+        }));
       },
       deletePart: (partId) => {
         const part = state.parts.find((p) => p.id === partId);
@@ -1825,6 +1837,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           currentRevision: "01",
           developmentRole: "entwickelt",
           mirrorPairPartId: mirrorId,
+          imageUrl: pickDemoPartImage({
+            name: `${input.baseName} ${input.developSide === "links" ? "Links" : "Rechts"}`,
+            moduleKind: input.moduleKind ?? "bezug",
+            partKind: "hauptteil",
+          }),
         };
         const mirror: Part = {
           id: mirrorId,
@@ -1840,6 +1857,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           developmentRole: "spiegel",
           mirrorMasterPartId: masterId,
           mirrorPairPartId: masterId,
+          imageUrl: pickDemoPartImage({
+            name: `${input.baseName} ${otherSide === "links" ? "Links" : "Rechts"}`,
+            moduleKind: input.moduleKind ?? "bezug",
+            partKind: "hauptteil",
+          }),
         };
         mutate((prev) => ({ ...prev, parts: [...prev.parts, master, mirror] }));
         logActivity({

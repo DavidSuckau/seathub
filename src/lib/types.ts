@@ -315,6 +315,11 @@ export interface Part {
    * Virtueller Bezug: noch keine reale TN / Platzhalter für frühe Entwicklung & Aufträge
    */
   isVirtual?: boolean;
+  /**
+   * Hauptbild des Bauteils (URL oder data:-URL).
+   * In der Demo vorbefüllt; Nutzer können es ersetzen.
+   */
+  imageUrl?: string;
 }
 
 /**
