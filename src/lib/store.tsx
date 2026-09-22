@@ -31,6 +31,7 @@ import { nextRevisionNumber } from "./revisions";
 import { loadState, resetState, saveState } from "./storage";
 import { supplyScopeLabel } from "./structure";
 import { expandCoverLabels, seatDisplayLabel } from "./program-templates";
+import { taskPath } from "@/lib/nav";
 import type {
   Activity,
   AgentInsight,
@@ -561,7 +562,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               title: `Flow gestartet: ${flow.name}`,
               detail: `Erster Schritt „${node.label}“ angelegt.`,
               severity: "info" as const,
-              href: `/tasks/${created.id}`,
+              href: taskPath(created.id),
               actionLabel: "Auftrag öffnen",
             },
             ...(prev.agentInsights ?? []),
@@ -673,7 +674,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               title: "Folgeauftrag erzeugt",
               detail: followUp.title,
               severity: "ok",
-              href: `/tasks/${followUp.id}`,
+              href: taskPath(followUp.id),
               actionLabel: "Öffnen",
             });
           } else if (pendingProposal) {
@@ -684,7 +685,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               title: "Folge-Schritt vorgeschlagen",
               detail: `${pendingProposal.label} – wartet auf Bestätigung`,
               severity: "warn",
-              href: `/tasks/${taskId}`,
+              href: taskPath(taskId),
               actionLabel: "Entscheiden",
             });
           } else if (flow && reachedEnd) {
@@ -855,7 +856,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               title: "Mensch hat Folge bestätigt",
               detail: created.title,
               severity: "ok" as const,
-              href: `/tasks/${created.id}`,
+              href: taskPath(created.id),
               actionLabel: "Öffnen",
             },
             ...(prev.agentInsights ?? []),
@@ -892,7 +893,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               title: "Folge-Vorschlag abgelehnt",
               detail: reason?.trim() || "Ohne Begründung",
               severity: "warn" as const,
-              href: `/tasks/${taskId}`,
+              href: taskPath(taskId),
             },
             ...(prev.agentInsights ?? []),
           ].slice(0, 40),

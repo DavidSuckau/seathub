@@ -7,7 +7,7 @@ import { taskTypeLabel } from "@/lib/labels";
 import { orderTypeDepartment } from "@/lib/orders";
 import { useStore } from "@/lib/store";
 import type { Part, PartKind } from "@/lib/types";
-import { navigate } from "@/lib/nav";
+import { navigate, navigateToTask } from "@/lib/nav";
 
 type Mode =
   | null
@@ -136,7 +136,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
         description: `Erstzeichnung für ${thing} ${created.name} (${created.partNumber}) am Bezug ${parent.partNumber}. Eingestellt von ${currentUser?.name ?? "User"}.`,
       });
       close();
-      navigate(`/tasks/${task.id}`);
+      navigateToTask(task.id);
       return;
     }
 

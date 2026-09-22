@@ -26,6 +26,7 @@ import {
 } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, ModuleKind, TaskStatus } from "@/lib/types";
+import { taskPath } from "@/lib/nav";
 
 const DONE = new Set(["abgeschlossen", "erledigt", "gestoppt"]);
 
@@ -217,7 +218,7 @@ function DeptDashboardInner() {
                   return (
                     <li key={t.id}>
                       <Link
-                        href={`/tasks/${t.id}`}
+                        href={taskPath(t.id)}
                         className="flex flex-col gap-1.5 py-3 transition hover:bg-[var(--bg-elevated)] sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
@@ -302,7 +303,7 @@ function DeptDashboardInner() {
                       {tasks.slice(0, 3).map((t) => (
                         <li key={t.id}>
                           <Link
-                            href={`/tasks/${t.id}`}
+                            href={taskPath(t.id)}
                             className="block truncate text-xs text-[var(--accent)] hover:underline"
                           >
                             {t.title}
@@ -357,7 +358,7 @@ function DeptDashboardInner() {
                 {waiting.map((t) => (
                   <li key={t.id}>
                     <Link
-                      href={`/tasks/${t.id}`}
+                      href={taskPath(t.id)}
                       className="block rounded-lg border border-[var(--warn)]/25 bg-[var(--warn-soft)] px-3 py-2 text-sm text-[var(--warn)] hover:underline"
                     >
                       {t.title}

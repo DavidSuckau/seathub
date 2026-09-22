@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
 import { OrderTypeIcon } from "@/components/OrderTypeIcons";
 import { taskTypeLabel } from "@/lib/labels";
-import { navigate } from "@/lib/nav";
+import { navigateToTask } from "@/lib/nav";
 import {
   createOrderTileTypes,
   orderPreferredSkills,
@@ -139,7 +139,7 @@ export function CreateOrderWizard({
         }) in Programm ${project?.code ?? ""}. Stand ${selectedPart.currentRevision}. Eingestellt von ${currentUser?.name ?? "User"}.`,
     });
     onCreated?.(created);
-    navigate(`/tasks/${created.id}`);
+    navigateToTask(created.id);
   }
 
   const body = (

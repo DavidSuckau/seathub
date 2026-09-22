@@ -8,6 +8,7 @@ import { CALENDAR_TODAY } from "@/lib/calendar";
 import { formatDate, taskTypeLabel } from "@/lib/labels";
 import { isTeamLead } from "@/lib/roles";
 import { useStore } from "@/lib/store";
+import { taskPath } from "@/lib/nav";
 
 function greeting(name: string): string {
   const h = new Date().getHours();
@@ -60,7 +61,7 @@ export default function DashboardPage() {
         id: `proposal-${t.id}`,
         title: p.label,
         detail: `Nach „${t.title}“ – bitte bestätigen.`,
-        href: `/tasks/${t.id}`,
+        href: taskPath(t.id),
         actionLabel: "Auftrag öffnen",
       });
     }
@@ -95,7 +96,7 @@ export default function DashboardPage() {
         id: `next-${nextAfterDone.id}`,
         title: nextAfterDone.title,
         detail: "Bereit für den nächsten Schritt – Auftrag öffnen und fortsetzen.",
-        href: `/tasks/${nextAfterDone.id}`,
+        href: taskPath(nextAfterDone.id),
         actionLabel: "Auftrag öffnen",
       });
     }
@@ -175,7 +176,7 @@ export default function DashboardPage() {
                   </>
                 }
                 primaryLabel="Öffnen"
-                primaryHref={`/tasks/${t.id}`}
+                primaryHref={taskPath(t.id)}
               />
             );
           })()}
@@ -197,7 +198,7 @@ export default function DashboardPage() {
                     {dueToday ? "Heute" : formatDate(t.dueDate)}
                   </p>
                 </div>
-                <Link href={`/tasks/${t.id}`}>
+                <Link href={taskPath(t.id)}>
                   <Button variant="secondary">Öffnen</Button>
                 </Link>
               </div>
@@ -251,7 +252,7 @@ export default function DashboardPage() {
             {deptQueue.map((t) => (
               <li key={t.id}>
                 <Link
-                  href={`/tasks/${t.id}`}
+                  href={taskPath(t.id)}
                   className="flex items-center justify-between rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm hover:border-[var(--accent)]"
                 >
                   <span className="font-medium">{t.title}</span>

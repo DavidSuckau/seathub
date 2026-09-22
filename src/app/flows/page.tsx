@@ -11,7 +11,7 @@ import {
   StatusPill,
   inputClass,
 } from "@/components/ui";
-import { navigate } from "@/lib/nav";
+import { navigateToTask } from "@/lib/nav";
 import { taskTypeLabel } from "@/lib/labels";
 import { createOrderTileTypes, orderTypeDepartment } from "@/lib/orders";
 import { checklistForTaskType, flowNodeKindLabel } from "@/lib/platform";
@@ -64,7 +64,7 @@ export default function FlowsPage() {
       projectId,
       partId,
     });
-    if (task) navigate(`/tasks/${task.id}`);
+    if (task) navigateToTask(task.id);
   }
 
   function onSelectNode(nodeId: string) {

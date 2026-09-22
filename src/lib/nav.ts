@@ -21,8 +21,20 @@ function ensureTrailingSlash(path: string): string {
   return `${withSlash}${query}`;
 }
 
+/**
+ * Auftragsdetail immer über stabile Static-URL (funktioniert auch für
+ * neu angelegte IDs ohne generateStaticParams / GH Pages).
+ */
+export function taskPath(taskId: string): string {
+  return `/tasks/view/?id=${encodeURIComponent(taskId)}`;
+}
+
 /** Client-Navigation inkl. basePath (Pages-Deploy). */
 export function navigate(path: string): void {
   if (typeof window === "undefined") return;
   window.location.assign(withBasePath(path));
+}
+
+export function navigateToTask(taskId: string): void {
+  navigate(taskPath(taskId));
 }

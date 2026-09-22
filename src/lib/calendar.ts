@@ -1,4 +1,5 @@
 import type { Lop, Task } from "./types";
+import { taskPath } from "@/lib/nav";
 
 export type CalendarItemKind = "task" | "lop";
 
@@ -70,7 +71,7 @@ export function tasksToCalendarItems(
       kind: "task" as const,
       title: t.title,
       dueDate: t.dueDate.slice(0, 10),
-      href: `/tasks/${t.id}`,
+      href: taskPath(t.id),
       priority: t.priority,
       status: t.status,
       overdue: t.dueDate.slice(0, 10) < today,

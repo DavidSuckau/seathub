@@ -25,6 +25,7 @@ import { partReleaseState, projectReleaseProgress } from "@/lib/progress";
 import { useStore } from "@/lib/store";
 import { supplyScopeHint, supplyScopeLabel, equipmentLabels } from "@/lib/structure";
 import type { ModuleKind } from "@/lib/types";
+import { taskPath } from "@/lib/nav";
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
@@ -251,7 +252,7 @@ export default function ProjectDetailPage() {
             ) : (
               tasks.map((t) => (
                 <li key={t.id} className="py-3">
-                  <Link href={`/tasks/${t.id}`} className="font-medium hover:text-[var(--accent)]">
+                  <Link href={taskPath(t.id)} className="font-medium hover:text-[var(--accent)]">
                     {t.title}
                   </Link>
                   <p className="text-sm text-[var(--ink-muted)]">

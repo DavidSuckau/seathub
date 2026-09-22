@@ -12,7 +12,7 @@ import {
 } from "@/components/LinkExistingProfileForm";
 import { PartLopPanel } from "@/components/PartLopPanel";
 import { Button, PageHeader, Panel, StatusPill, inputClass } from "@/components/ui";
-import { navigate } from "@/lib/nav";
+import { navigate, taskPath, navigateToTask } from "@/lib/nav";
 import {
   getChildComponents,
   getUsedOnPartIds,
@@ -271,7 +271,7 @@ function PartDetailInner() {
         <CreatePartOrderForm
           part={part}
           onCreated={(t) => {
-            navigate(`/tasks/${t.id}`);
+            navigateToTask(t.id);
           }}
         />
       </div>
@@ -669,7 +669,7 @@ function PartDetailInner() {
               .filter((t) => t.partId === part.id)
               .map((t) => (
                 <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] py-2">
-                  <Link href={`/tasks/${t.id}`} className="font-medium hover:text-[var(--accent)]">
+                  <Link href={taskPath(t.id)} className="font-medium hover:text-[var(--accent)]">
                     {t.title}
                   </Link>
                   <div className="flex gap-1.5">
