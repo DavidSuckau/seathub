@@ -14,6 +14,7 @@ import {
 import { ProgressBar } from "@/components/ProgressBar";
 import { ProjectStructureTree } from "@/components/ProjectStructureTree";
 import { PartImageThumb } from "@/components/PartHauptbild";
+import { SeatExplodedView } from "@/components/SeatExplodedView";
 import { AmpelBadge, Button, PageHeader, Panel, StatusPill } from "@/components/ui";
 import {
   formatDate,
@@ -57,6 +58,23 @@ export default function ProjectDetailPage() {
       if (p.moduleKind) set.add(p.moduleKind);
     }
     return Array.from(set);
+  }, [projectParts]);
+
+  const moduleCounts = useMemo(() => {
+    const counts: Partial<Record<ModuleKind | "alle", number>> = {
+      alle: projectParts.length,
+    };
+    for (const p of projectParts) {
+      const k = p.moduleKind ?? "bezug";
+      counts[k] = (counts[k] ?? 0) + 1;
+      if (k === "metall") {
+        counts.struktur = (counts.struktur ?? 0) + 1;
+      }
+      if (k === "struktur") {
+        counts.metall = (counts.metall ?? 0) + 1;
+      }
+    }
+    return counts;
   }, [projectParts]);
 
   if (!project) {
@@ -161,6 +179,17 @@ export default function ProjectDetailPage() {
             ? ` ${progress.withoutRelease} noch ohne Freigabe.`
             : ""}
         </p>
+      </Panel>
+
+      <Panel title="Sitz – Explosionszeichnung" className="mb-6">
+        <p className="mb-3 text-sm text-[var(--ink-muted)]">
+          Module am Sitz anklicken – die Struktur und Bauteile darunter werden gefiltert.
+        </p>
+        <SeatExplodedView
+          selected={artFilter}
+          onSelect={setArtFilter}
+          counts={moduleCounts}
+        />
       </Panel>
 
       <ArtFilterLayout
