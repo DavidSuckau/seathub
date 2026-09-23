@@ -181,9 +181,9 @@ export default function ProjectDetailPage() {
         </p>
       </Panel>
 
-      <Panel title="Sitz – Explosionszeichnung" className="mb-6">
+      <Panel title="Sitz – Teilekatalog" className="mb-6">
         <p className="mb-3 text-sm text-[var(--ink-muted)]">
-          Module am Sitz anklicken – die Struktur und Bauteile darunter werden gefiltert.
+          Positionsnummern anklicken – die Bauteile darunter werden gefiltert.
         </p>
         <SeatExplodedView
           selected={artFilter}
