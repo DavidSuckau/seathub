@@ -1407,6 +1407,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 pieces: previousStand.cutBom.pieces.map((p) => ({ ...p })),
               }
             : undefined,
+          dxf: previousStand?.dxf
+            ? { ...previousStand.dxf }
+            : undefined,
           files: [`ZW_${part.partNumber}_${next}_WIP.pdf`],
           componentStands,
           weightGrams: previousStand?.weightGrams,

@@ -13,6 +13,7 @@ import {
 import { PartLopPanel } from "@/components/PartLopPanel";
 import { PartHauptbild, PartImageThumb } from "@/components/PartHauptbild";
 import { BezugCutBomPanel } from "@/components/BezugCutBomPanel";
+import { DxfViewerPanel } from "@/components/DxfViewer";
 import { Button, PageHeader, Panel, StatusPill, inputClass } from "@/components/ui";
 import { navigate, navigateToPart, navigateToTask, partPath, taskPath } from "@/lib/nav";
 import {
@@ -585,7 +586,7 @@ export function PartDetailView({ partId }: { partId: string }) {
 
           <div className="space-y-6">
             <Panel title="Zeichnungen (dieser Stand)">
-              <div className="space-y-2">
+              <div className="mb-4 space-y-2">
                 {(selected.drawings.length ? selected.drawings : selected.files).map((f) => (
                   <div
                     key={f}
@@ -595,9 +596,14 @@ export function PartDetailView({ partId }: { partId: string }) {
                   </div>
                 ))}
                 {selected.drawings.length === 0 && selected.files.length === 0 ? (
-                  <p className="text-sm text-[var(--ink-subtle)]">Keine Zeichnungen.</p>
+                  <p className="text-sm text-[var(--ink-subtle)]">Keine Zeichnungsdatei-Namen.</p>
                 ) : null}
               </div>
+              <DxfViewerPanel
+                part={part}
+                dxf={selected.dxf}
+                onChange={(dxf) => updateRevision(selected.id, { dxf })}
+              />
             </Panel>
 
             <Panel title="Dokumente">

@@ -393,6 +393,12 @@ export interface Revision {
    * undefined = noch nicht angelegt; pieces[] = angelegt (ggf. leer vor Import).
    */
   cutBom?: CutBom;
+  /** Klassische 2D-CAD-Zeichnung (DXF-Text) an diesem Stand */
+  dxf?: {
+    fileName: string;
+    content: string;
+    uploadedAt: string;
+  };
   /**
    * Bei Bezug/Assemblierung: welche Komponenten-Stände genau an diesem Stand hängen.
    * Unabhängig vom aktuellen Stand der Komponente – dokumentiert die Verwendung.
