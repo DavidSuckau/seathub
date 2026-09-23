@@ -1,20 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { readImageFile } from "@/components/LopPhotoGallery";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { getUsedOnPartIds } from "@/lib/components";
 import { taskTypeLabel } from "@/lib/labels";
+import { navigateToPart, navigateToTask, withBasePath } from "@/lib/nav";
 import { orderTypeDepartment } from "@/lib/orders";
+import { pickDemoPartImage } from "@/lib/part-images";
 import { useStore } from "@/lib/store";
 import type { Part, PartKind } from "@/lib/types";
-import { navigateToTask, navigateToPart } from "@/lib/nav";
-
-type Mode =
-  | null
-  | "menu"
-  | "neu"
-  | "cad"
-  | "link";
 
 const kindLabel: Record<string, string> = {
   profil: "Profil",
@@ -23,21 +18,24 @@ const kindLabel: Record<string, string> = {
 };
 
 /**
- * Ein kleiner „+“-Button statt vieler großer CTAs.
- * Neu anlegen / verknüpfen läuft in Modals (SeatHub UX).
+ * Ein „+“ am Bezug: neues Profil/Komponente in einem Schritt.
  */
 export function AssemblyAddButton({ parent }: { parent: Part }) {
   const { addPart, addRevision, addTask, state, currentUser, linkComponentToAssembly } =
     useStore();
-  const [mode, setMode] = useState<Mode>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"neu" | "link">("neu");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [withCad, setWithCad] = useState(true);
+  const [linkId, setLinkId] = useState("");
   const [form, setForm] = useState({
     partNumber: "",
     name: "",
-    componentRole: "OKR-Kurzschlussprofil",
     partKind: "profil" as PartKind,
+    imageUrl: "",
   });
-  const [linkId, setLinkId] = useState("");
 
   const linkCandidates = useMemo(() => {
     return state.parts.filter((p) => {
@@ -48,69 +46,65 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
   }, [state.parts, parent]);
 
   function close() {
-    setMode(null);
-    setLinkId("");
-    setFormError(null);
-    setForm({
-      partNumber: "",
-      name: "",
-      componentRole: "OKR-Kurzschlussprofil",
-      partKind: "profil",
-    });
-  }
-
-  function startNeu(kind: "profil" | "befestigung" | "sonstig") {
-    setForm({
-      partNumber: "",
-      name: "",
-      componentRole:
-        kind === "profil"
-          ? "OKR-Kurzschlussprofil"
-          : kind === "befestigung"
-            ? "Befestigung / Clip"
-            : "Komponente am Bezug",
-      partKind: kind,
-    });
+    setOpen(false);
     setMode("neu");
+    setLinkId("");
+    setError(null);
+    setWithCad(true);
+    setForm({ partNumber: "", name: "", partKind: "profil", imageUrl: "" });
   }
 
-  function goToCad() {
+  async function onPickImage(files: FileList | null) {
+    if (!files?.[0]) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const url = await readImageFile(files[0]);
+      setForm((f) => ({ ...f, imageUrl: url }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Bild fehlgeschlagen.");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  function createItem() {
+    setError(null);
     if (!form.partNumber.trim() || !form.name.trim()) {
-      setFormError("Teilenummer und Bezeichnung sind Pflicht.");
+      setError("Nummer und Beschreibung sind Pflicht.");
       return;
     }
-    setFormError(null);
-    setMode("cad");
-  }
-
-  function createItem(withCadOrder: boolean) {
-    const tn = form.partNumber.trim();
-    const isProfil = form.partKind === "profil";
     const thing = kindLabel[form.partKind] ?? "Komponente";
+    const imageUrl =
+      form.imageUrl.trim() ||
+      pickDemoPartImage({
+        name: form.name.trim(),
+        partKind: form.partKind,
+        moduleKind: "profil",
+      });
+
     const created = addPart({
-      partNumber: tn,
+      partNumber: form.partNumber.trim(),
       name: form.name.trim(),
       projectId: parent.projectId,
       structureNodeId: parent.structureNodeId,
       side: "einzeln",
-      moduleKind: isProfil
-        ? "profil"
-        : parent.moduleKind === "bezug"
-          ? "profil"
-          : "profil",
+      moduleKind: "profil",
       partKind: form.partKind,
       parentPartId: parent.id,
       usedOnPartIds: [parent.id],
-      componentRole: form.componentRole.trim() || undefined,
+      componentRole: thing,
       engineerUserId: parent.engineerUserId ?? state.currentUserId,
       coverDeveloperUserId: parent.coverDeveloperUserId,
       currentRevision: "01",
       developmentRole: "eigenstaendig",
+      imageUrl,
     });
     addRevision({
       partId: created.id,
       revision: "01",
-      title: withCadOrder ? "Erstzeichnung – CAD beauftragt" : "Erststand angelegt",
+      title: withCad ? "Erstzeichnung – CAD beauftragt" : "Erststand angelegt",
       date: new Date().toISOString().slice(0, 10),
       createdByUserId: state.currentUserId,
       userType: "intern",
@@ -123,7 +117,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
       files: [],
     });
 
-    if (withCadOrder) {
+    if (withCad) {
       const task = addTask({
         title: `${taskTypeLabel.cad} · ${created.partNumber} · Stand 01`,
         type: "cad",
@@ -150,7 +144,16 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
     navigateToPart(created.id);
   }
 
-  const thingLabel = kindLabel[form.partKind] ?? "Komponente";
+  const previewRaw =
+    form.imageUrl ||
+    pickDemoPartImage({
+      name: form.name || form.partKind,
+      partKind: form.partKind,
+      moduleKind: "profil",
+    });
+  const preview = form.imageUrl.startsWith("data:")
+    ? form.imageUrl
+    : withBasePath(previewRaw);
 
   return (
     <>
@@ -158,222 +161,175 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
         type="button"
         title="Hinzufügen"
         aria-label="Profil oder Komponente hinzufügen"
-        onClick={() => setMode("menu")}
+        onClick={() => setOpen(true)}
         className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface)] text-lg font-medium leading-none text-[var(--ink-muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
       >
         +
       </button>
 
-      {mode === "menu" ? (
-        <Modal title="Hinzufügen" onClose={close} size="md">
-          <p className="mb-4 text-sm text-[var(--ink-muted)]">
-            Was möchtest du am Bezug anlegen oder verknüpfen?
-          </p>
-          <ul className="space-y-2">
-            {(
-              [
-                {
-                  id: "profil" as const,
-                  label: "Neues Profil",
-                  hint: "OKR o. ä. – eigene TN + Stände",
-                },
-                {
-                  id: "sonstig" as const,
-                  label: "Neue Komponente",
-                  hint: "Sonstiges Teil am Bezug",
-                },
-                {
-                  id: "befestigung" as const,
-                  label: "Befestigung / Clip",
-                  hint: "Clips, Halter, Befestigungen",
-                },
-              ] as const
-            ).map((opt) => (
-              <li key={opt.id}>
-                <button
-                  type="button"
-                  onClick={() => startNeu(opt.id)}
-                  className="flex w-full flex-col rounded-[var(--radius)] border border-[var(--line)] px-4 py-3 text-left transition hover:border-[var(--accent)]"
-                >
-                  <span className="font-medium text-[var(--ink)]">{opt.label}</span>
-                  <span className="text-xs text-[var(--ink-muted)]">{opt.hint}</span>
-                </button>
-              </li>
-            ))}
-            <li>
-              <button
-                type="button"
-                onClick={() => setMode("link")}
-                className="flex w-full flex-col rounded-[var(--radius)] border border-[var(--line)] px-4 py-3 text-left transition hover:border-[var(--accent)]"
-              >
-                <span className="font-medium text-[var(--ink)]">
-                  Bestehendes Profil verknüpfen
-                </span>
-                <span className="text-xs text-[var(--ink-muted)]">
-                  Geteilte Verwendung an diesem Bezug
-                </span>
-              </button>
-            </li>
-          </ul>
-        </Modal>
-      ) : null}
+      {open ? (
+        <Modal title="Am Bezug hinzufügen" onClose={close} size="lg">
+          <div className="mb-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("neu")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                mode === "neu"
+                  ? "bg-[var(--accent)] text-white"
+                  : "border border-[var(--line)]"
+              }`}
+            >
+              Neu anlegen
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("link")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                mode === "link"
+                  ? "bg-[var(--accent)] text-white"
+                  : "border border-[var(--line)]"
+              }`}
+            >
+              Bestehendes verknüpfen
+            </button>
+          </div>
 
-      {mode === "neu" ? (
-        <Modal title={`${thingLabel} anlegen`} onClose={close} size="lg">
-          <p className="mb-3 text-sm text-[var(--ink-muted)]">
-            {form.partKind === "profil"
-              ? "Profile haben eigene Teilenummer und Zeichnung."
-              : "Komponente mit eigener Teilenummer am Bezug."}
-          </p>
-          {formError ? (
+          {error ? (
             <p className="mb-3 rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
-              {formError}
+              {error}
             </p>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Teilenummer">
-              <input
-                className={inputClass}
-                value={form.partNumber}
-                onChange={(e) =>
-                  setForm({ ...form, partNumber: e.target.value })
-                }
-                placeholder="z. B. A990-ALC-L-P05"
-              />
-            </Field>
-            <Field label="Art">
-              <select
-                className={inputClass}
-                value={form.partKind}
-                onChange={(e) => {
-                  const kind = e.target.value as PartKind;
-                  setForm({
-                    ...form,
-                    partKind: kind,
-                    componentRole:
-                      kind === "profil"
-                        ? "OKR-Kurzschlussprofil"
-                        : kind === "befestigung"
-                          ? "Befestigung / Clip"
-                          : "Komponente am Bezug",
-                  });
-                }}
-              >
-                <option value="profil">Profil (OKR o. ä.)</option>
-                <option value="befestigung">Befestigung / Clip</option>
-                <option value="sonstig">Sonstige Komponente</option>
-              </select>
-            </Field>
-            <Field label="Bezeichnung">
-              <input
-                className={inputClass}
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder={
-                  form.partKind === "profil"
-                    ? "OKR-Kurzschlussprofil …"
-                    : "Bezeichnung"
-                }
-              />
-            </Field>
-            <Field label="Rolle am Bezug">
-              <input
-                className={inputClass}
-                value={form.componentRole}
-                onChange={(e) =>
-                  setForm({ ...form, componentRole: e.target.value })
-                }
-              />
-            </Field>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={goToCad}>Weiter</Button>
-            <Button variant="secondary" onClick={() => setMode("menu")}>
-              Zurück
-            </Button>
-            <Button variant="ghost" onClick={close}>
-              Abbrechen
-            </Button>
-          </div>
-        </Modal>
-      ) : null}
 
-      {mode === "cad" ? (
-        <Modal title="CAD-Zeichnung beauftragen?" onClose={close} size="md">
-          <p className="mb-1 text-sm font-medium text-[var(--ink)]">
-            {thingLabel}: {form.partNumber} · {form.name}
-          </p>
-          <p className="mb-4 text-sm text-[var(--ink-muted)]">
-            Soll die CAD-Abteilung das zeichnen? Auftrag geht an CAD (Zuweisung
-            offen).
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => createItem(true)}>Ja, CAD beauftragen</Button>
-            <Button variant="secondary" onClick={() => createItem(false)}>
-              Nein, nur anlegen
-            </Button>
-            <Button variant="ghost" onClick={() => setMode("neu")}>
-              Zurück
-            </Button>
-          </div>
-        </Modal>
-      ) : null}
-
-      {mode === "link" ? (
-        <Modal title="Bestehendes Profil verknüpfen" onClose={close} size="md">
-          <p className="mb-3 text-sm text-[var(--ink-muted)]">
-            Gleiches Profil für mehrere Bezüge. Eine Änderung gilt für alle
-            verknüpften Bezüge.
-          </p>
-          <Field label="Profil">
-            <select
-              className={inputClass}
-              value={linkId}
-              onChange={(e) => setLinkId(e.target.value)}
-            >
-              <option value="">— wählen —</option>
-              {linkCandidates.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.partNumber} · {c.name} (Stand {c.currentRevision})
-                </option>
-              ))}
-            </select>
-          </Field>
-          {linkCandidates.length === 0 ? (
-            <p className="mt-2 text-xs text-[var(--ink-subtle)]">
-              Keine weiteren Profile im Programm verfügbar.
-            </p>
-          ) : null}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              disabled={!linkId}
-              onClick={() => {
-                if (!linkId) return;
-                linkComponentToAssembly(linkId, parent.id);
-                close();
-              }}
-            >
-              Verknüpfen
-            </Button>
-            <Button variant="secondary" onClick={() => setMode("menu")}>
-              Zurück
-            </Button>
-            <Button variant="ghost" onClick={close}>
-              Abbrechen
-            </Button>
-          </div>
+          {mode === "neu" ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
+                <div className="space-y-3">
+                  <Field label="Art">
+                    <div className="flex flex-wrap gap-1.5">
+                      {(
+                        [
+                          ["profil", "Profil"],
+                          ["befestigung", "Befestigung"],
+                          ["sonstig", "Komponente"],
+                        ] as const
+                      ).map(([id, lab]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setForm({ ...form, partKind: id })}
+                          className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                            form.partKind === id
+                              ? "bg-[var(--accent)] text-white"
+                              : "border border-[var(--line)] text-[var(--ink-muted)]"
+                          }`}
+                        >
+                          {lab}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="Teilenummer">
+                    <input
+                      className={inputClass}
+                      value={form.partNumber}
+                      onChange={(e) =>
+                        setForm({ ...form, partNumber: e.target.value })
+                      }
+                      placeholder="z. B. A990-ALC-L-P05"
+                      autoFocus
+                    />
+                  </Field>
+                  <Field label="Beschreibung">
+                    <input
+                      className={inputClass}
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="z. B. OKR-Kurzschlussprofil Sitzseite"
+                    />
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm text-[var(--ink-muted)]">
+                    <input
+                      type="checkbox"
+                      checked={withCad}
+                      onChange={(e) => setWithCad(e.target.checked)}
+                    />
+                    CAD-Zeichnung gleich beauftragen
+                  </label>
+                </div>
+                <div>
+                  <p className="mb-1.5 text-sm font-medium">Bild</p>
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="relative block aspect-[4/3] w-full overflow-hidden rounded-[var(--radius)] border border-dashed border-[var(--line-strong)]"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={preview} alt="" className="h-full w-full object-cover" />
+                    <span className="absolute inset-x-0 bottom-0 bg-[#10151a]/65 py-1 text-center text-[11px] text-white">
+                      {form.imageUrl ? "Ersetzen" : "Foto"}
+                    </span>
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => onPickImage(e.target.files)}
+                  />
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button onClick={createItem} disabled={busy}>
+                  Anlegen
+                </Button>
+                <Button variant="ghost" onClick={close}>
+                  Abbrechen
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-[var(--ink-muted)]">
+                Bestehendes Profil an diesen Bezug hängen (geteilt).
+              </p>
+              <Field label="Profil">
+                <select
+                  className={inputClass}
+                  value={linkId}
+                  onChange={(e) => setLinkId(e.target.value)}
+                >
+                  <option value="">— wählen —</option>
+                  {linkCandidates.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.partNumber} · {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <div className="mt-4 flex gap-2">
+                <Button
+                  disabled={!linkId}
+                  onClick={() => {
+                    if (!linkId) return;
+                    linkComponentToAssembly(linkId, parent.id);
+                    close();
+                  }}
+                >
+                  Verknüpfen
+                </Button>
+                <Button variant="ghost" onClick={close}>
+                  Abbrechen
+                </Button>
+              </div>
+            </>
+          )}
         </Modal>
       ) : null}
     </>
   );
 }
 
-/** @deprecated Alias – nutzt denselben +/Modal-Flow */
-export function AddProfileForm({
-  parent,
-}: {
-  parent: Part;
-  defaultKind?: "profil" | "befestigung" | "sonstig";
-}) {
+/** @deprecated Alias */
+export function AddProfileForm({ parent }: { parent: Part }) {
   return <AssemblyAddButton parent={parent} />;
 }
