@@ -232,6 +232,9 @@ export default function TasksPage() {
                         </div>
                         <p className="mt-1 text-xs text-[var(--ink-subtle)]">
                           Fällig {formatDate(t.dueDate)}
+                          {t.plannedHours != null
+                            ? ` · ${t.plannedHours} h`
+                            : ""}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">

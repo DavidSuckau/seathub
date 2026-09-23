@@ -24,6 +24,13 @@ import {
   taskStatusLabel,
   taskTypeLabel,
 } from "@/lib/labels";
+import {
+  departmentCapacityFromTasks,
+  formatPlannedHours,
+  formatWeekLabel,
+  WEEK_HOURS,
+  weekStartKey,
+} from "@/lib/capacity";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, ModuleKind, TaskStatus } from "@/lib/types";
 import { taskPath } from "@/lib/nav";
@@ -44,6 +51,11 @@ function DeptDashboardInner() {
     () =>
       state.users.filter((u) => u.departmentId === deptId && u.demoRole !== "extern"),
     [state.users, deptId],
+  );
+
+  const capacity = useMemo(
+    () => departmentCapacityFromTasks(deptId, state.users, state.tasks),
+    [deptId, state.users, state.tasks],
   );
 
   const allTasksRaw = useMemo(
@@ -91,11 +103,24 @@ function DeptDashboardInner() {
   const byPerson = useMemo(() => {
     return people
       .map((u) => {
-        const assigned = openTasks.filter((t) => t.assigneeId === u.id);
-        return { user: u, count: assigned.length, tasks: assigned };
+        const row = capacity.byPerson.find((p) => p.userId === u.id);
+        const weekTasks = openTasks.filter(
+          (t) =>
+            t.assigneeId === u.id &&
+            weekStartKey(t.dueDate) === capacity.weekStart,
+        );
+        return {
+          user: u,
+          count: row?.openCount ?? weekTasks.length,
+          load: row?.percent ?? 0,
+          hours: row?.hours ?? 0,
+          overloaded: row?.overloaded ?? false,
+          freeHours: row?.freeHours ?? WEEK_HOURS,
+          tasks: weekTasks,
+        };
       })
-      .sort((a, b) => b.count - a.count);
-  }, [people, openTasks]);
+      .sort((a, b) => b.hours - a.hours || b.count - a.count);
+  }, [people, openTasks, capacity]);
 
   const timeByType = useMemo(() => {
     const map = new Map<string, number[]>();
@@ -166,10 +191,17 @@ function DeptDashboardInner() {
           <p className="mt-2 font-[family-name:var(--font-display)] text-3xl">{overdue.length}</p>
         </Panel>
         <Panel>
-          <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-subtle)]">Team</p>
-          <p className="mt-2 font-[family-name:var(--font-display)] text-3xl">{people.length}</p>
+          <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-subtle)]">
+            Auslastung
+          </p>
+          <p className="mt-2 font-[family-name:var(--font-display)] text-3xl">
+            {capacity.percent} %
+          </p>
           <p className="mt-1 text-xs text-[var(--ink-muted)]">
-            Auslastung {dept.capacityPercent} %
+            Woche {formatWeekLabel(capacity.weekStart)} · {WEEK_HOURS} h
+            {capacity.unassignedCount > 0
+              ? ` · ${capacity.unassignedCount} ohne Zuweisung`
+              : ""}
           </p>
         </Panel>
       </div>
@@ -228,6 +260,9 @@ function DeptDashboardInner() {
                             {part ? ` · ${part.partNumber}` : ""} ·{" "}
                             {assignee?.name ?? "Zuweisung offen"} · Fällig{" "}
                             {formatDate(t.dueDate)}
+                            {t.plannedHours != null
+                              ? ` · ${formatPlannedHours(t.plannedHours)} geplant`
+                              : ""}
                             {t.timeSpentMinutes != null && t.timeSpentMinutes > 0
                               ? ` · ${formatDuration(t.timeSpentMinutes)}`
                               : ""}
@@ -282,22 +317,55 @@ function DeptDashboardInner() {
         </div>
 
         <div className="space-y-6">
-          <Panel title="Team & Lastverteilung">
+          <Panel
+            title="Team & Lastverteilung"
+            action={
+              <StatusPill tone="neutral">
+                {formatWeekLabel(capacity.weekStart)} · {WEEK_HOURS} h
+              </StatusPill>
+            }
+          >
             <ul className="space-y-3">
-              {byPerson.map(({ user, count, tasks }) => (
+              {byPerson.map(({ user, count, load, hours, overloaded, freeHours, tasks }) => (
                 <li
                   key={user.id}
-                  className="rounded-lg border border-[var(--line)] px-3 py-2.5"
+                  className={`rounded-lg border px-3 py-2.5 ${
+                    overloaded
+                      ? "border-[var(--warn)]/40 bg-[var(--warn-soft)]"
+                      : "border-[var(--line)]"
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="text-sm font-medium">{user.name}</p>
                       <p className="text-xs text-[var(--ink-muted)]">{user.roleLabel}</p>
                     </div>
-                    <StatusPill tone={count > 2 ? "warn" : count > 0 ? "accent" : "neutral"}>
-                      {count} offen
-                    </StatusPill>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <StatusPill tone={overloaded ? "warn" : hours > 0 ? "accent" : "neutral"}>
+                        {formatPlannedHours(hours)} / {WEEK_HOURS} h
+                      </StatusPill>
+                      <StatusPill tone={load > 100 ? "warn" : load > 0 ? "accent" : "neutral"}>
+                        {load} %
+                      </StatusPill>
+                      <StatusPill tone={count > 0 ? "accent" : "neutral"}>
+                        {count} offen
+                      </StatusPill>
+                    </div>
                   </div>
+                  {overloaded ? (
+                    <p className="mt-1.5 text-xs font-medium text-[var(--warn)]">
+                      Überschneidung – {formatPlannedHours(hours - WEEK_HOURS)} über{" "}
+                      {WEEK_HOURS} h
+                    </p>
+                  ) : count === 0 ? (
+                    <p className="mt-1.5 text-xs text-[var(--ink-subtle)]">
+                      Keine Aufträge diese Woche – {formatPlannedHours(freeHours)} frei
+                    </p>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-[var(--ink-subtle)]">
+                      Noch {formatPlannedHours(freeHours)} frei
+                    </p>
+                  )}
                   {tasks.length > 0 ? (
                     <ul className="mt-2 space-y-1">
                       {tasks.slice(0, 3).map((t) => (
@@ -307,6 +375,9 @@ function DeptDashboardInner() {
                             className="block truncate text-xs text-[var(--accent)] hover:underline"
                           >
                             {t.title}
+                            {t.plannedHours != null
+                              ? ` · ${formatPlannedHours(t.plannedHours)}`
+                              : ""}
                           </Link>
                         </li>
                       ))}

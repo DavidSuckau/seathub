@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PageHeader, Panel, StatusPill } from "@/components/ui";
+import {
+  departmentCapacityFromTasks,
+  personCapacityFromTasks,
+} from "@/lib/capacity";
 import { locationLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, LocationId, User } from "@/lib/types";
@@ -198,7 +202,15 @@ export default function OrgPage() {
                                         {dept.name}
                                       </p>
                                       <p className="text-xs text-[var(--ink-subtle)]">
-                                        Auslastung {dept.capacityPercent} %
+                                        Auslastung{" "}
+                                        {
+                                          departmentCapacityFromTasks(
+                                            dept.id,
+                                            state.users,
+                                            state.tasks,
+                                          ).percent
+                                        }{" "}
+                                        %
                                       </p>
                                     </div>
                                     <CountBadge n={people.length} />
@@ -332,7 +344,12 @@ export default function OrgPage() {
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-[var(--ink-subtle)]">Auslastung</dt>
-                    <dd>{selectedUser.capacityPercent} %</dd>
+                    <dd>
+                      {personCapacityFromTasks(selectedUser.id, state.tasks)} %
+                      <span className="ml-1 text-[var(--ink-subtle)]">
+                        (aus offenen Aufträgen)
+                      </span>
+                    </dd>
                   </div>
                 </dl>
                 <div className="mt-4">

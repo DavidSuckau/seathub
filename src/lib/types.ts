@@ -320,6 +320,11 @@ export interface Part {
    * In der Demo vorbefüllt; Nutzer können es ersetzen.
    */
   imageUrl?: string;
+  /**
+   * Geplantes Fertigstellungsdatum (YYYY-MM-DD).
+   * Muss je Bauteil hinterlegt werden können – unabhängig von Auftrags-Fälligkeiten.
+   */
+  dueDate?: string;
 }
 
 /**
@@ -430,6 +435,12 @@ export interface Task {
   needsAssignment?: boolean;
   priority: "niedrig" | "normal" | "hoch" | "kritisch";
   dueDate: string;
+  /**
+   * Geplante / kalkulierte Stunden für diesen Auftrag.
+   * Beim Anlegen Pflicht – Basis für Wochenauslastung (35 h).
+   * Alte Daten werden in storage auf Vorschlagswerte normalisiert.
+   */
+  plannedHours?: number;
   progress: number;
   description: string;
   rejectReason?: string;
@@ -633,6 +644,37 @@ export interface Activity {
   detail?: string;
 }
 
+/** Materialart für Bezug / Sitzfertigung */
+export type MaterialArt =
+  | "leder"
+  | "stoff"
+  | "alcantara"
+  | "kunstleder"
+  | "schaum"
+  | "garn"
+  | "profil"
+  | "clip"
+  | "klebstoff"
+  | "vlies"
+  | "sonstig";
+
+export type MaterialEinheit = "Stk" | "m" | "m²" | "kg" | "Rolle" | "Paar" | "Set";
+
+export interface Material {
+  id: string;
+  /** Interne / Einkaufs-Kaufnummer */
+  kaufnummer: string;
+  beschreibung: string;
+  art: MaterialArt;
+  einheit: MaterialEinheit;
+  /** Preis je Einheit in EUR */
+  preis: number;
+  lieferant: string;
+  lagerplatz: string;
+  /** Verfügbare Menge auf Lager */
+  verfuegbar: number;
+}
+
 export interface SeatHubState {
   version: number;
   currentUserId: string;
@@ -648,6 +690,8 @@ export interface SeatHubState {
   approvals: Approval[];
   substitutions: Substitution[];
   activityLog: Activity[];
+  /** Materialstammdaten (Kaufnummer, Lager, Preis) */
+  materials: Material[];
   /** Eigene Programm-Vorlagen (Archiv), zusätzlich zu den Built-ins */
   programTemplates?: ProgramTemplate[];
   /** Flow-Generator: Prozessvorlagen */

@@ -50,6 +50,7 @@ export function CreatePartForm({
     coverLabel: "Leder",
     partNumber: "",
     name: "",
+    dueDate: "",
     side: "einzeln" as PartSide,
     imageUrl: "",
     pair: false,
@@ -94,6 +95,7 @@ export function CreatePartForm({
       coverLabel: "Leder",
       partNumber: "",
       name: "",
+      dueDate: "",
       side: "einzeln",
       imageUrl: "",
       pair: false,
@@ -161,6 +163,7 @@ export function CreatePartForm({
       });
 
     let openId: string | undefined;
+    const dueDate = form.dueDate.trim() || undefined;
 
     if (form.pair) {
       if (!form.partNumberRight.trim()) {
@@ -177,9 +180,12 @@ export function CreatePartForm({
         moduleKind: form.moduleKind,
         engineerUserId: state.currentUserId,
       });
-      if (form.imageUrl.trim()) {
-        updatePart(pair.master.id, { imageUrl });
-        updatePart(pair.mirror.id, { imageUrl });
+      const patch: { imageUrl?: string; dueDate?: string } = {};
+      if (form.imageUrl.trim()) patch.imageUrl = imageUrl;
+      if (dueDate) patch.dueDate = dueDate;
+      if (Object.keys(patch).length) {
+        updatePart(pair.master.id, patch);
+        updatePart(pair.mirror.id, patch);
       }
       openId = pair.master.id;
     } else {
@@ -199,6 +205,7 @@ export function CreatePartForm({
             : undefined,
         currentRevision: "01",
         imageUrl,
+        dueDate,
       });
       addRevision({
         partId: created.id,
@@ -335,6 +342,15 @@ export function CreatePartForm({
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="z. B. Sportsitz Alcantara Links"
+                />
+              </Field>
+
+              <Field label="Fertigstellung">
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={form.dueDate}
+                  onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                 />
               </Field>
             </div>

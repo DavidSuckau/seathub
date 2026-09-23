@@ -269,9 +269,16 @@ export default function ProjectDetailPage() {
                       {part.name}
                     </span>
                   </span>
-                  <StatusPill tone="warn">
-                    Ohne Freigabe · Stand {part.currentRevision}
-                  </StatusPill>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {part.dueDate ? (
+                      <StatusPill tone="neutral">
+                        Fertig {formatDate(part.dueDate)}
+                      </StatusPill>
+                    ) : null}
+                    <StatusPill tone="warn">
+                      Ohne Freigabe · Stand {part.currentRevision}
+                    </StatusPill>
+                  </span>
                 </Link>
               </li>
             ))

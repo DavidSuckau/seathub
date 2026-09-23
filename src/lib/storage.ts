@@ -1,8 +1,10 @@
 import { createSeedState } from "./seed";
+import { suggestedPlannedHours } from "./capacity";
+import { createDemoMaterials } from "./materials";
 import { pickDemoPartImage } from "./part-images";
 import type { Lop, LopHistoryEntry, SeatHubState, Task } from "./types";
 
-export const STORAGE_KEY = "seathub-prototype-v23";
+export const STORAGE_KEY = "seathub-prototype-v25";
 
 function historyFromLegacy(lop: Lop): LopHistoryEntry[] {
   if (lop.history?.length) return lop.history;
@@ -49,6 +51,8 @@ function normalize(state: SeatHubState): SeatHubState {
       includesHeadrest: p.includesHeadrest,
     })),
     programTemplates: state.programTemplates ?? [],
+    materials:
+      state.materials?.length ? state.materials : createDemoMaterials(),
     flows: state.flows?.length ? state.flows : seed.flows,
     agents: state.agents?.length ? state.agents : seed.agents,
     agentInsights: state.agentInsights?.length
@@ -64,6 +68,10 @@ function normalize(state: SeatHubState): SeatHubState {
       ...t,
       history: taskHistoryFromLegacy(t),
       checklist: t.checklist ?? [],
+      plannedHours:
+        t.plannedHours != null && t.plannedHours > 0
+          ? t.plannedHours
+          : suggestedPlannedHours(t.type),
     })),
     parts: (state.parts ?? seed.parts).map((p) => {
       const fromSeed = seed.parts.find((s) => s.id === p.id);
@@ -73,6 +81,7 @@ function normalize(state: SeatHubState): SeatHubState {
           p.imageUrl?.trim() ||
           fromSeed?.imageUrl ||
           pickDemoPartImage(p),
+        dueDate: p.dueDate ?? fromSeed?.dueDate,
       };
     }),
     revisions: (state.revisions ?? seed.revisions).map((r) => {

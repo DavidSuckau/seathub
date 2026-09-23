@@ -8,6 +8,7 @@ import {
   partMatchesArt,
 } from "@/components/ModuleKindFilter";
 import { PageHeader, Panel, StatusPill } from "@/components/ui";
+import { departmentCapacityFromTasks } from "@/lib/capacity";
 import { locationLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, ModuleKind } from "@/lib/types";
@@ -101,6 +102,7 @@ export default function DepartmentsPage() {
               l.status !== "geschlossen",
           );
           const isMine = dept.id === myDeptId;
+          const cap = departmentCapacityFromTasks(dept.id, state.users, state.tasks);
 
           return (
             <Link
@@ -152,7 +154,10 @@ export default function DepartmentsPage() {
               </div>
 
               <p className="mt-4 text-xs text-[var(--ink-muted)]">
-                {people.length} Personen · Auslastung {dept.capacityPercent} %
+                {people.length} Personen · Auslastung {cap.percent} %
+                {cap.unassignedCount > 0
+                  ? ` · ${cap.unassignedCount} ohne Zuweisung`
+                  : ""}
               </p>
             </Link>
           );

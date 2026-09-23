@@ -18,6 +18,12 @@ import {
   taskTypeLabel,
 } from "@/lib/labels";
 import { orderPreferredSkills, orderTypeDepartment } from "@/lib/orders";
+import {
+  WEEK_HOURS,
+  formatPlannedHours,
+  personWeekLoad,
+  weekStartKey,
+} from "@/lib/capacity";
 import { orderedFlowPath, suggestAssignees } from "@/lib/platform";
 import { useStore } from "@/lib/store";
 import type { TaskStatus } from "@/lib/types";
@@ -37,8 +43,8 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
   const [showComplete, setShowComplete] = useState(false);
 
   const agentSuggestions = useMemo(
-    () => (task ? suggestAssignees(state.users, task.type, 3) : []),
-    [task, state.users],
+    () => (task ? suggestAssignees(state.users, task.type, 3, state.tasks) : []),
+    [task, state.users, state.tasks],
   );
 
   const flow = useMemo(
@@ -58,20 +64,26 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
     if (!task) return [];
     const deptId = task.departmentId || orderTypeDepartment[task.type];
     const preferred = orderPreferredSkills[task.type] ?? [];
+    const week = weekStartKey(task.dueDate);
     return state.users
       .filter((u) => u.departmentId === deptId && u.demoRole !== "extern")
       .map((u) => {
         const skillScore = u.skills
           .filter((s) => preferred.includes(s.name))
           .reduce((acc, s) => acc + s.level, 0);
-        return { user: u, skillScore };
+        const weekLoad = personWeekLoad(u.id, state.tasks, week);
+        return {
+          user: u,
+          skillScore,
+          load: weekLoad.percent,
+          weekLoad,
+        };
       })
       .sort(
         (a, b) =>
-          b.skillScore - a.skillScore ||
-          a.user.capacityPercent - b.user.capacityPercent,
+          b.skillScore - a.skillScore || a.load - b.load,
       );
-  }, [task, state.users]);
+  }, [task, state.users, state.tasks]);
 
   if (!task) {
     return (
@@ -157,6 +169,11 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
           <StatusPill tone={done ? "ok" : waiting ? "warn" : "accent"}>
             {waiting ? "Zuweisung offen" : taskStatusLabel[task.status]}
           </StatusPill>
+          {task.plannedHours != null ? (
+            <StatusPill tone="neutral">
+              {formatPlannedHours(task.plannedHours)} geplant
+            </StatusPill>
+          ) : null}
           {part ? (
             <span className="text-sm text-[var(--ink-muted)]">{part.partNumber}</span>
           ) : null}
@@ -309,6 +326,23 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
                   ))}
                 </select>
               </Field>
+              <Field label="Kalkulierte Stunden">
+                <input
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  className={inputClass}
+                  value={task.plannedHours ?? ""}
+                  onChange={(e) => {
+                    const v = Number(e.target.value.replace(",", "."));
+                    if (!Number.isFinite(v) || v <= 0) return;
+                    updateTask(task.id, { plannedHours: v });
+                  }}
+                />
+                <p className="mt-1 text-xs text-[var(--ink-subtle)]">
+                  Woche = {WEEK_HOURS} h
+                </p>
+              </Field>
               <Field label="Zugewiesen">
                 <select
                   className={inputClass}
@@ -322,11 +356,17 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
                   }}
                 >
                   <option value="">— offen —</option>
-                  {candidates.map(({ user }) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name}
-                    </option>
-                  ))}
+                  {candidates.map(({ user, weekLoad }) => {
+                    const add = task.assigneeId === user.id ? 0 : (task.plannedHours ?? 0);
+                    const after = weekLoad.hours + add;
+                    return (
+                      <option key={user.id} value={user.id}>
+                        {user.name} · {formatPlannedHours(weekLoad.hours)}/
+                        {WEEK_HOURS}h
+                        {after > WEEK_HOURS ? " · Überschneidung" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </Field>
             </div>

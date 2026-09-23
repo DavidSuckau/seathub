@@ -12,6 +12,7 @@ import {
   agentKindLabel,
   suggestAssignees,
 } from "@/lib/platform";
+import { personCapacityFromTasks } from "@/lib/capacity";
 import { formatDateTime, taskTypeLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { TaskType } from "@/lib/types";
@@ -30,8 +31,8 @@ export default function AgentsPage() {
   const [demoType, setDemoType] = useState<TaskType>("naehauftrag");
 
   const suggestions = useMemo(
-    () => suggestAssignees(state.users, demoType, 3),
-    [state.users, demoType],
+    () => suggestAssignees(state.users, demoType, 3, state.tasks),
+    [state.users, state.tasks, demoType],
   );
 
   function simulateLager() {
@@ -200,7 +201,8 @@ export default function AgentsPage() {
                   <StatusPill tone="accent">Score {Math.round(s.score)}</StatusPill>
                 </div>
                 <p className="text-xs text-[var(--ink-muted)]">
-                  {s.user.roleLabel} · {s.user.capacityPercent}% Auslastung
+                  {s.user.roleLabel} ·{" "}
+                  {personCapacityFromTasks(s.user.id, state.tasks)}% Auslastung
                 </p>
                 <ul className="mt-1.5 space-y-0.5 text-xs text-[var(--ink-subtle)]">
                   {s.reasons.map((r) => (

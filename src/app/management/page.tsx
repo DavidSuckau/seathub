@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AmpelBadge, PageHeader, Panel } from "@/components/ui";
+import { departmentCapacityFromTasks } from "@/lib/capacity";
 import { useStore } from "@/lib/store";
 
 export default function ManagementPage() {
@@ -20,15 +21,19 @@ export default function ManagementPage() {
         d.id,
       ),
     )
-    .map((d) => ({
-      ...d,
-      tone:
-        d.capacityPercent > 105
-          ? ("kritisch" as const)
-          : d.capacityPercent > 95
-            ? ("risiko" as const)
-            : ("ok" as const),
-    }))
+    .map((d) => {
+      const cap = departmentCapacityFromTasks(d.id, state.users, state.tasks);
+      return {
+        ...d,
+        capacityPercent: cap.percent,
+        tone:
+          cap.percent > 105
+            ? ("kritisch" as const)
+            : cap.percent > 95
+              ? ("risiko" as const)
+              : ("ok" as const),
+      };
+    })
     .sort((a, b) => b.capacityPercent - a.capacityPercent);
 
   const risks = state.projects
@@ -48,10 +53,13 @@ export default function ManagementPage() {
       0,
       ...state.departments
         .filter((d) => d.location === loc.id)
-        .map((d) => d.capacityPercent),
+        .map(
+          (d) =>
+            departmentCapacityFromTasks(d.id, state.users, state.tasks).percent,
+        ),
       0,
     );
-    return { ...loc, people, load: load || (people > 0 ? 75 : 0) };
+    return { ...loc, people, load: load || (people > 0 ? 0 : 0) };
   });
 
   return (

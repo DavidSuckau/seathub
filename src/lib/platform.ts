@@ -10,6 +10,7 @@ import type {
   TaskType,
   User,
 } from "./types";
+import { personCapacityFromTasks, suggestedPlannedHours } from "./capacity";
 import { orderPreferredSkills, orderTypeDepartment } from "./orders";
 import { uid } from "./labels";
 
@@ -99,11 +100,12 @@ export type AssigneeSuggestion = {
   reasons: string[];
 };
 
-/** Digitale Abteilungsleiter-Logik: Skill + freie Kapazität */
+/** Digitale Abteilungsleiter-Logik: Skill + freie Kapazität (aus echten Aufträgen) */
 export function suggestAssignees(
   users: User[],
   taskType: TaskType,
   limit = 3,
+  tasks: Task[] = [],
 ): AssigneeSuggestion[] {
   const dept = orderTypeDepartment[taskType];
   const preferred = orderPreferredSkills[taskType] ?? [];
@@ -120,9 +122,15 @@ export function suggestAssignees(
           `Skills: ${skillHits.map((s) => `${s.name} L${s.level}`).join(", ")}`,
         );
       }
-      const free = Math.max(0, 100 - u.capacityPercent);
+      const load = personCapacityFromTasks(u.id, tasks);
+      const free = Math.max(0, 100 - load);
+      const freeHours = Math.round((free / 100) * 35 * 10) / 10;
       score += free * 0.8;
-      reasons.push(`Kapazität ${u.capacityPercent}% (frei ~${free}%)`);
+      reasons.push(
+        load === 0
+          ? "Keine offenen Aufträge – gut verfügbar"
+          : `Auslastung ${load}% · ~${freeHours} h frei (Woche 35 h)`,
+      );
       if (u.location === "hannover") {
         score += 5;
         reasons.push("Standort Hannover");

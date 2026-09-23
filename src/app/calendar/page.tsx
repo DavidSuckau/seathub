@@ -10,6 +10,7 @@ import {
   lopsToCalendarItems,
   monthLabel,
   parseDateKey,
+  partsToCalendarItems,
   tasksToCalendarItems,
   type CalendarItem,
 } from "@/lib/calendar";
@@ -38,20 +39,37 @@ export default function CalendarPage() {
   const items = useMemo(() => {
     let tasks = state.tasks;
     let lops = state.lops;
+    let parts = state.parts;
 
     if (scope === "meine") {
       tasks = tasks.filter((t) => t.assigneeId === uid);
       lops = lops.filter((l) => l.assigneeIds.includes(uid));
+      parts = parts.filter(
+        (p) =>
+          p.engineerUserId === uid || p.coverDeveloperUserId === uid,
+      );
     } else if (scope === "abteilung" && deptId) {
       tasks = tasks.filter((t) => t.departmentId === deptId);
       lops = lops.filter((l) => l.departmentIds.includes(deptId));
+      const deptUserIds = new Set(
+        state.users
+          .filter((u) => u.departmentId === deptId)
+          .map((u) => u.id),
+      );
+      parts = parts.filter(
+        (p) =>
+          (p.engineerUserId && deptUserIds.has(p.engineerUserId)) ||
+          (p.coverDeveloperUserId &&
+            deptUserIds.has(p.coverDeveloperUserId)),
+      );
     }
 
     return [
       ...tasksToCalendarItems(tasks, today),
       ...lopsToCalendarItems(lops, today),
+      ...partsToCalendarItems(parts, today),
     ];
-  }, [state.tasks, state.lops, scope, uid, deptId, today]);
+  }, [state.tasks, state.lops, state.parts, state.users, scope, uid, deptId, today]);
 
   const byDate = useMemo(() => groupByDate(items), [items]);
   const cells = useMemo(
@@ -211,13 +229,20 @@ export default function CalendarPage() {
                         className={`truncate rounded px-1 py-0.5 text-[10px] leading-tight ${
                           item.kind === "lop"
                             ? "bg-[var(--warm-soft)] text-[var(--warm)]"
-                            : item.overdue
-                              ? "bg-[var(--warn-soft)] text-[var(--warn)]"
-                              : "bg-[var(--accent-soft)] text-[var(--accent)]"
+                            : item.kind === "part"
+                              ? "bg-[var(--ok-soft)] text-[var(--ok)]"
+                              : item.overdue
+                                ? "bg-[var(--warn-soft)] text-[var(--warn)]"
+                                : "bg-[var(--accent-soft)] text-[var(--accent)]"
                         }`}
                         title={item.title}
                       >
-                        {item.kind === "lop" ? "LOP" : "A"} · {item.title}
+                        {item.kind === "lop"
+                          ? "LOP"
+                          : item.kind === "part"
+                            ? "TN"
+                            : "A"}{" "}
+                        · {item.title}
                       </div>
                     ))}
                     {dayList.length > 2 ? (
@@ -255,8 +280,20 @@ export default function CalendarPage() {
                     className="flex flex-col gap-1 py-3 transition hover:bg-[var(--bg-elevated)]"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusPill tone={item.kind === "lop" ? "warn" : "accent"}>
-                        {item.kind === "lop" ? "LOP" : "Auftrag"}
+                      <StatusPill
+                        tone={
+                          item.kind === "lop"
+                            ? "warn"
+                            : item.kind === "part"
+                              ? "ok"
+                              : "accent"
+                        }
+                      >
+                        {item.kind === "lop"
+                          ? "LOP"
+                          : item.kind === "part"
+                            ? "Bauteil"
+                            : "Auftrag"}
                       </StatusPill>
                       {item.overdue ? (
                         <StatusPill tone="danger">Überfällig</StatusPill>

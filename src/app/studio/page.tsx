@@ -26,6 +26,11 @@ const links = [
     text: "Struktur, Freigaben, Programmübersicht",
   },
   {
+    href: "/materials",
+    title: "Materialdatenbank",
+    text: "Kaufnummer, Lager, Preis, Lieferant",
+  },
+  {
     href: "/org",
     title: "Organisation",
     text: "Standorte, Abteilungen, Personen",

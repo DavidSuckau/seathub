@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { taskStatusLabel, uid } from "./labels";
+import { suggestedPlannedHours } from "./capacity";
 import { orderTypeDepartment } from "./orders";
 import {
   buildChecklist,
@@ -42,6 +43,7 @@ import type {
   FlowNodeKind,
   Lop,
   LopHistoryEntry,
+  Material,
   ModuleKind,
   Part,
   PendingFollowUp,
@@ -123,6 +125,9 @@ type StoreContextValue = {
   addLopHistory: (lopId: string, action: string, detail?: string) => void;
   takeOverLop: (lopId: string, userId: string) => void;
   addUser: (user: Omit<User, "id">) => User;
+  addMaterial: (material: Omit<Material, "id">) => Material;
+  updateMaterial: (id: string, patch: Partial<Material>) => void;
+  deleteMaterial: (id: string) => void;
   updateUser: (id: string, patch: Partial<User>) => void;
   addSubstitution: (sub: Omit<Substitution, "id">) => void;
   addRevision: (rev: Omit<Revision, "id">) => Revision;
@@ -556,6 +561,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           needsAssignment: true,
           priority: "hoch",
           dueDate: "2026-10-15",
+          plannedHours: suggestedPlannedHours(taskType),
           progress: 0,
           description: `Gestartet über Flow „${flow.name}“. Agenten begleiten den Prozess.`,
           createdAt,
@@ -642,6 +648,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 needsAssignment: true,
                 priority: task.priority,
                 dueDate: task.dueDate,
+                plannedHours: suggestedPlannedHours(nextType),
                 progress: 0,
                 description: `Automatisch erzeugt durch Flow „${flow.name}“ nach Abschluss von „${task.title}“.${walkNote ? ` ${walkNote}` : ""}`,
                 createdAt: now,
@@ -830,6 +837,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           needsAssignment: true,
           priority: task.priority,
           dueDate: task.dueDate,
+          plannedHours: suggestedPlannedHours(proposal.taskType),
           progress: 0,
           description: `Vom Menschen bestätigt (Flow-Vorschlag) nach „${task.title}“.${proposal.note ? ` ${proposal.note}` : ""}`,
           createdAt: now,
@@ -1240,6 +1248,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           detail: created.name,
         });
         return created;
+      },
+      addMaterial: (material) => {
+        const created: Material = { ...material, id: uid() };
+        mutate((prev) => ({
+          ...prev,
+          materials: [...(prev.materials ?? []), created],
+        }));
+        logActivity({
+          action: "Material angelegt",
+          entityType: "material",
+          entityId: created.id,
+          detail: `${created.kaufnummer} – ${created.beschreibung}`,
+        });
+        return created;
+      },
+      updateMaterial: (id, patch) => {
+        mutate((prev) => ({
+          ...prev,
+          materials: (prev.materials ?? []).map((m) =>
+            m.id === id ? { ...m, ...patch } : m,
+          ),
+        }));
+      },
+      deleteMaterial: (id) => {
+        mutate((prev) => ({
+          ...prev,
+          materials: (prev.materials ?? []).filter((m) => m.id !== id),
+        }));
+        logActivity({
+          action: "Material gelöscht",
+          entityType: "material",
+          entityId: id,
+        });
       },
       updateUser: (id, patch) => {
         mutate((prev) => ({

@@ -43,6 +43,7 @@ function navSectionsForRole(
             { href: "/flows", label: "Flows" },
             { href: "/agents", label: "Agenten" },
             { href: "/projects", label: "Projekte" },
+            { href: "/materials", label: "Material" },
             { href: "/org", label: "Organisation" },
           ],
         },
@@ -63,6 +64,7 @@ function navSectionsForRole(
           title: "Studio",
           items: [
             { href: "/studio", label: "Studio" },
+            { href: "/materials", label: "Material" },
             { href: "/flows", label: "Flows" },
             { href: "/agents", label: "Agenten" },
           ],

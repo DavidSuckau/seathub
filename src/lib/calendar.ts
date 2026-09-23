@@ -1,7 +1,7 @@
-import type { Lop, Task } from "./types";
-import { taskPath } from "@/lib/nav";
+import type { Lop, Part, Task } from "./types";
+import { partPath, taskPath } from "@/lib/nav";
 
-export type CalendarItemKind = "task" | "lop";
+export type CalendarItemKind = "task" | "lop" | "part";
 
 export type CalendarItem = {
   id: string;
@@ -92,6 +92,23 @@ export function lopsToCalendarItems(
       href: `/lops/${l.id}`,
       status: l.status,
       overdue: l.dueDate!.slice(0, 10) < today,
+    }));
+}
+
+export function partsToCalendarItems(
+  parts: Part[],
+  today: string = CALENDAR_TODAY,
+): CalendarItem[] {
+  return parts
+    .filter((p) => Boolean(p.dueDate))
+    .map((p) => ({
+      id: p.id,
+      kind: "part" as const,
+      title: `${p.partNumber} · ${p.name}`,
+      dueDate: p.dueDate!.slice(0, 10),
+      href: partPath(p.id),
+      status: p.releasedRevision ? "freigegeben" : "offen",
+      overdue: p.dueDate!.slice(0, 10) < today,
     }));
 }
 

@@ -7,6 +7,7 @@ import { getUsedOnPartIds } from "@/lib/components";
 import { taskTypeLabel } from "@/lib/labels";
 import { navigateToPart, navigateToTask, withBasePath } from "@/lib/nav";
 import { demoDxfAttachment } from "@/lib/dxf-demo";
+import { suggestedPlannedHours } from "@/lib/capacity";
 import { orderTypeDepartment } from "@/lib/orders";
 import { pickDemoPartImage } from "@/lib/part-images";
 import { useStore } from "@/lib/store";
@@ -35,6 +36,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
     partNumber: "",
     name: "",
     partKind: "profil" as PartKind,
+    dueDate: "",
     imageUrl: "",
   });
 
@@ -52,7 +54,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
     setLinkId("");
     setError(null);
     setWithCad(true);
-    setForm({ partNumber: "", name: "", partKind: "profil", imageUrl: "" });
+    setForm({ partNumber: "", name: "", partKind: "profil", dueDate: "", imageUrl: "" });
   }
 
   async function onPickImage(files: FileList | null) {
@@ -101,6 +103,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
       currentRevision: "01",
       developmentRole: "eigenstaendig",
       imageUrl,
+      dueDate: form.dueDate.trim() || undefined,
     });
     addRevision({
       partId: created.id,
@@ -134,6 +137,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
           .toISOString()
           .slice(0, 10),
+        plannedHours: suggestedPlannedHours("cad"),
         progress: 0,
         description: `Erstzeichnung für ${thing} ${created.name} (${created.partNumber}) am Bezug ${parent.partNumber}. Eingestellt von ${currentUser?.name ?? "User"}.`,
       });
@@ -247,6 +251,16 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       placeholder="z. B. OKR-Kurzschlussprofil Sitzseite"
+                    />
+                  </Field>
+                  <Field label="Fertigstellung">
+                    <input
+                      type="date"
+                      className={inputClass}
+                      value={form.dueDate}
+                      onChange={(e) =>
+                        setForm({ ...form, dueDate: e.target.value })
+                      }
                     />
                   </Field>
                   <label className="flex items-center gap-2 text-sm text-[var(--ink-muted)]">

@@ -6,6 +6,14 @@ import { OrderTypeIcon } from "@/components/OrderTypeIcons";
 import { taskTypeLabel } from "@/lib/labels";
 import { navigateToTask } from "@/lib/nav";
 import {
+  WEEK_HOURS,
+  formatPlannedHours,
+  personWeekLoad,
+  suggestedPlannedHours,
+  weekStartKey,
+} from "@/lib/capacity";
+import { CALENDAR_TODAY } from "@/lib/calendar";
+import {
   createOrderTileTypes,
   orderPreferredSkills,
   orderTypeDepartment,
@@ -36,12 +44,14 @@ export function CreateOrderWizard({
   const [view, setView] = useState<ViewMode>("kacheln");
   const [type, setType] = useState<TaskType | null>(null);
   const [partId, setPartId] = useState(fixedPart?.id ?? "");
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
     projectId: fixedPart?.projectId ?? state.projects[0]?.id ?? "",
     assigneeId: "",
     priority: "hoch" as Priority,
     dueDate: "2026-09-30",
+    plannedHours: "",
     description: "",
   });
 
@@ -66,35 +76,42 @@ export function CreateOrderWizard({
   const candidates = useMemo(() => {
     if (!type || !departmentId) return [];
     const preferred = orderPreferredSkills[type] ?? [];
+    const week = weekStartKey(form.dueDate || CALENDAR_TODAY);
     return state.users
       .filter((u) => u.departmentId === departmentId && u.demoRole !== "extern")
       .map((u) => {
         const skillScore = u.skills
           .filter((s) => preferred.includes(s.name))
           .reduce((acc, s) => acc + s.level, 0);
-        return { user: u, skillScore };
+        const weekLoad = personWeekLoad(u.id, state.tasks, week);
+        return { user: u, skillScore, load: weekLoad.percent, weekLoad };
       })
       .sort(
         (a, b) =>
-          b.skillScore - a.skillScore ||
-          a.user.capacityPercent - b.user.capacityPercent,
+          b.skillScore - a.skillScore || a.load - b.load,
       );
-  }, [state.users, departmentId, type]);
+  }, [state.users, state.tasks, departmentId, type, form.dueDate]);
 
   function selectType(t: TaskType) {
     setType(t);
-    if (selectedPart) {
-      setForm((f) => ({
+    setError(null);
+    setForm((f) => {
+      const hours =
+        f.plannedHours.trim() || String(suggestedPlannedHours(t));
+      if (selectedPart) {
+        return {
+          ...f,
+          plannedHours: hours,
+          title: `${taskTypeLabel[t]} · ${selectedPart.partNumber} · Stand ${selectedPart.currentRevision}`,
+          projectId: selectedPart.projectId,
+        };
+      }
+      return {
         ...f,
-        title: `${taskTypeLabel[t]} · ${selectedPart.partNumber} · Stand ${selectedPart.currentRevision}`,
-        projectId: selectedPart.projectId,
-      }));
-    } else {
-      setForm((f) => ({
-        ...f,
+        plannedHours: hours,
         title: f.title.trim() ? f.title : taskTypeLabel[t],
-      }));
-    }
+      };
+    });
   }
 
   function onPartChange(id: string) {
@@ -113,6 +130,11 @@ export function CreateOrderWizard({
 
   function submit() {
     if (!type || !selectedPart) return;
+    const hours = Number(String(form.plannedHours).replace(",", "."));
+    if (!Number.isFinite(hours) || hours <= 0) {
+      setError("Bitte die kalkulierten Stunden hinterlegen (größer als 0).");
+      return;
+    }
     const title =
       form.title.trim() ||
       `${taskTypeLabel[type]} · ${selectedPart.partNumber}`;
@@ -131,12 +153,13 @@ export function CreateOrderWizard({
       assigneeId: form.assigneeId || undefined,
       priority: form.priority,
       dueDate: form.dueDate,
+      plannedHours: hours,
       progress: 0,
       description:
         form.description.trim() ||
         `${taskTypeLabel[type]} für ${selectedPart.name} (${selectedPart.partNumber}${
           selectedPart.isVirtual ? ", virtuell" : ""
-        }) in Programm ${project?.code ?? ""}. Stand ${selectedPart.currentRevision}. Eingestellt von ${currentUser?.name ?? "User"}.`,
+        }) in Programm ${project?.code ?? ""}. Stand ${selectedPart.currentRevision}. Kalkuliert: ${hours} h. Eingestellt von ${currentUser?.name ?? "User"}.`,
     });
     onCreated?.(created);
     navigateToTask(created.id);
@@ -291,6 +314,12 @@ export function CreateOrderWizard({
             <p className="text-xs text-[var(--ink-subtle)]">{orderTypeHint[type]}</p>
           ) : null}
 
+          {error ? (
+            <p className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
+              {error}
+            </p>
+          ) : null}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Titel">
               <input
@@ -321,6 +350,23 @@ export function CreateOrderWizard({
                 onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
               />
             </Field>
+            <Field label="Kalkulierte Stunden *">
+              <input
+                type="number"
+                min={0.5}
+                step={0.5}
+                className={inputClass}
+                value={form.plannedHours}
+                onChange={(e) => {
+                  setError(null);
+                  setForm({ ...form, plannedHours: e.target.value });
+                }}
+                placeholder={`z. B. ${suggestedPlannedHours(type)}`}
+              />
+              <p className="mt-1 text-xs text-[var(--ink-subtle)]">
+                Woche = {WEEK_HOURS} h · zeigt Beschäftigung und Überschneidungen
+              </p>
+            </Field>
             <Field label="Sofort zuweisen (optional)">
               <select
                 className={inputClass}
@@ -328,12 +374,19 @@ export function CreateOrderWizard({
                 onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}
               >
                 <option value="">— später durch Abteilung —</option>
-                {candidates.map(({ user, skillScore }) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} · {user.capacityPercent}%
-                    {skillScore > 0 ? ` · Skill ${skillScore}` : ""}
-                  </option>
-                ))}
+                {candidates.map(({ user, skillScore, weekLoad }) => {
+                  const addHours = Number(String(form.plannedHours).replace(",", ".")) || 0;
+                  const after = weekLoad.hours + addHours;
+                  const overlap = after > WEEK_HOURS;
+                  return (
+                    <option key={user.id} value={user.id}>
+                      {user.name} · {formatPlannedHours(weekLoad.hours)}/
+                      {WEEK_HOURS}h
+                      {overlap ? " · Überschneidung" : ` · frei ${formatPlannedHours(weekLoad.freeHours)}`}
+                      {skillScore > 0 ? ` · Skill ${skillScore}` : ""}
+                    </option>
+                  );
+                })}
               </select>
             </Field>
             <div className="sm:col-span-2">
@@ -355,7 +408,10 @@ export function CreateOrderWizard({
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button onClick={submit} disabled={!selectedPart}>
+            <Button
+              onClick={submit}
+              disabled={!selectedPart || !form.plannedHours.trim()}
+            >
               Auftrag einstellen
             </Button>
             {onCancel ? (

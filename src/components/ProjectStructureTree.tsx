@@ -10,6 +10,7 @@ import {
 import { PartImageThumb } from "@/components/PartHauptbild";
 import { StatusPill } from "@/components/ui";
 import { isComponentPart } from "@/lib/components";
+import { formatDate } from "@/lib/labels";
 import { getPartRevisions, revisionStatusLabel } from "@/lib/revisions";
 import {
   countPartsUnderNode,
@@ -83,6 +84,11 @@ function PartRow({
             <StatusPill tone="accent">Stand {part.currentRevision}</StatusPill>
             {part.releasedRevision ? (
               <StatusPill tone="ok">Freigabe {part.releasedRevision}</StatusPill>
+            ) : null}
+            {part.dueDate ? (
+              <StatusPill tone="neutral">
+                Fertig {formatDate(part.dueDate)}
+              </StatusPill>
             ) : null}
             <StatusPill tone={role === "spiegel" ? "watch" : role === "entwickelt" ? "ok" : "neutral"}>
               {developmentRoleLabel[role]}

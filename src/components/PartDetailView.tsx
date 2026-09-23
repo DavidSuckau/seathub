@@ -14,7 +14,7 @@ import { PartLopPanel } from "@/components/PartLopPanel";
 import { PartHauptbild, PartImageThumb } from "@/components/PartHauptbild";
 import { BezugCutBomPanel } from "@/components/BezugCutBomPanel";
 import { DxfViewerPanel } from "@/components/DxfViewer";
-import { Button, PageHeader, Panel, StatusPill, inputClass } from "@/components/ui";
+import { Button, Field, PageHeader, Panel, StatusPill, inputClass } from "@/components/ui";
 import { navigate, navigateToPart, navigateToTask, partPath, taskPath } from "@/lib/nav";
 import {
   getChildComponents,
@@ -22,6 +22,7 @@ import {
   isAssemblyPart,
   isSharedComponent,
 } from "@/lib/components";
+import { CALENDAR_TODAY } from "@/lib/calendar";
 import { demoDxfAttachment } from "@/lib/dxf-demo";
 import { formatDate, formatDateTime, taskTypeLabel } from "@/lib/labels";
 import { partKindLabel } from "@/lib/orders";
@@ -217,9 +218,39 @@ export function PartDetailView({ partId }: { partId: string }) {
       )}
 
       <p className="mb-2 text-sm text-[var(--ink-muted)]">{pathLabel}</p>
-      <p className="mb-5 text-sm text-[var(--ink-muted)]">
+      <p className="mb-3 text-sm text-[var(--ink-muted)]">
         Ing. {engineer?.name ?? "—"} · Bezug {coverDev?.name ?? "—"}
       </p>
+
+      <div className="mb-5 flex max-w-md flex-wrap items-end gap-3">
+        <div className="min-w-[11rem] flex-1">
+          <Field label="Fertigstellung">
+            <input
+              type="date"
+              className={inputClass}
+              value={part.dueDate ?? ""}
+              onChange={(e) =>
+                updatePart(part.id, {
+                  dueDate: e.target.value.trim() || undefined,
+                })
+              }
+            />
+          </Field>
+        </div>
+        {part.dueDate ? (
+          <StatusPill
+            tone={part.dueDate < CALENDAR_TODAY ? "warn" : "accent"}
+          >
+            {part.dueDate < CALENDAR_TODAY
+              ? `Überfällig · ${formatDate(part.dueDate)}`
+              : formatDate(part.dueDate)}
+          </StatusPill>
+        ) : (
+          <p className="pb-2 text-xs text-[var(--ink-subtle)]">
+            Datum setzen – erscheint im Kalender
+          </p>
+        )}
+      </div>
 
       {isAssembly ? (
         <div className="mb-6">

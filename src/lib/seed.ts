@@ -4,6 +4,7 @@ import {
   createDemoFlows,
   createDemoInsights,
 } from "./platform";
+import { createDemoMaterials } from "./materials";
 import { withDemoPartImages } from "./part-images";
 
 const ids = {
@@ -29,7 +30,7 @@ const ids = {
 
 export function createSeedState(): SeatHubState {
   const seed: SeatHubState = {
-    version: 19,
+    version: 20,
     currentUserId: ids.anna,
     demoRole: "mitarbeiter",
     departments: [
@@ -2228,12 +2229,59 @@ export function createSeedState(): SeatHubState {
       },
     ],
     programTemplates: [],
+    materials: createDemoMaterials(),
     flows: createDemoFlows(),
     agents: createDemoAgents(),
     agentInsights: createDemoInsights(),
   };
   return {
     ...seed,
-    parts: withDemoPartImages(seed.parts),
+    parts: withPartDueDates(withDemoPartImages(seed.parts), seed.projects),
+    tasks: withTaskPlannedHours(seed.tasks),
   };
+}
+
+/** Demo: Fertigstellung je Bauteil relativ zur Programm-SOP */
+function withPartDueDates<T extends { id: string; projectId: string; dueDate?: string }>(
+  parts: T[],
+  projects: { id: string; sopDate?: string }[],
+): T[] {
+  return parts.map((p, i) => {
+    if (p.dueDate) return p;
+    const sop = projects.find((pr) => pr.id === p.projectId)?.sopDate ?? "2027-06-01";
+    const d = new Date(`${sop}T12:00:00`);
+    d.setDate(d.getDate() - (100 + (i % 7) * 12));
+    return { ...p, dueDate: d.toISOString().slice(0, 10) };
+  });
+}
+
+function withTaskPlannedHours<
+  T extends { type: string; plannedHours?: number; priority?: string },
+>(tasks: T[]): (T & { plannedHours: number })[] {
+  const byType: Record<string, number> = {
+    naehauftrag: 4,
+    schnittentwicklung: 8,
+    cad: 6,
+    musterbau: 12,
+    zuschnittauftrag: 3,
+    polsterauftrag: 5,
+    dokumentation: 3,
+    bezugsentwicklung: 6,
+    entwicklungsschleife: 8,
+    materialbestellung: 1,
+    reparatur: 3,
+    support: 2,
+    extern: 8,
+    pruefung: 2,
+    aenderung: 4,
+  };
+  return tasks.map((t) => {
+    if (t.plannedHours != null && t.plannedHours > 0) {
+      return { ...t, plannedHours: t.plannedHours };
+    }
+    let hours = byType[t.type] ?? 4;
+    if (t.priority === "kritisch") hours = Math.round(hours * 1.25 * 2) / 2;
+    if (t.priority === "niedrig") hours = Math.max(1, hours - 1);
+    return { ...t, plannedHours: hours };
+  });
 }
