@@ -42,6 +42,7 @@ import type {
   FlowNodeKind,
   Lop,
   LopHistoryEntry,
+  ModuleKind,
   Part,
   PendingFollowUp,
   ProcessFlow,
@@ -150,6 +151,24 @@ type StoreContextValue = {
   }) => StructureNode;
   /** Neues Programm inkl. Sitzreihen / Varianten / Ausstattung */
   addConfiguredProject: (config: ProgramCreateConfig) => SeatHubState["projects"][0];
+  /** Kleines Programm ohne vorab-Struktur – Struktur wächst mit Bauteilen */
+  addSimpleProject: (input: {
+    customer: string;
+    code: string;
+    name?: string;
+    supplyScope?: SupplyScope;
+  }) => SeatHubState["projects"][0];
+  /**
+   * Sitzreihe / Sitzart / Modul / Bezugvariante finden oder anlegen,
+   * damit die Struktur nach und nach mit den Bauteilen entsteht.
+   */
+  resolveStructureForPart: (input: {
+    projectId: string;
+    rowLabel: string;
+    seatLabel: string;
+    moduleKind: ModuleKind;
+    coverLabel?: string;
+  }) => string;
   /** Eigene Vorlage ins Archiv legen */
   saveProgramTemplate: (
     tpl: Omit<ProgramTemplate, "id" | "custom"> & { id?: string },
@@ -1790,6 +1809,182 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }`,
         });
         return project;
+      },
+      addSimpleProject: (input) => {
+        const projectId = uid();
+        const code = input.code.trim().toUpperCase();
+        const customer = input.customer.trim() || "Kunde";
+        const supplyScope = input.supplyScope ?? "komplettsitz";
+        const project: SeatHubState["projects"][0] = {
+          id: projectId,
+          code,
+          name: input.name?.trim() || `Programm ${code}`,
+          customer,
+          status: "entwicklung",
+          ampel: "gelb",
+          locations: ["hannover"],
+          description: `${supplyScopeLabel[supplyScope]} – Struktur wächst mit den Bauteilen.`,
+          supplyScope,
+          equipment: [],
+        };
+        mutate((prev) => ({
+          ...prev,
+          projects: [project, ...prev.projects],
+        }));
+        logActivity({
+          action: "Programm angelegt",
+          entityType: "project",
+          entityId: projectId,
+          detail: `${customer} · ${code} (einfach)`,
+        });
+        return project;
+      },
+      resolveStructureForPart: (input) => {
+        const rowLabel = input.rowLabel.trim();
+        const seatLabel = input.seatLabel.trim();
+        if (!rowLabel || !seatLabel) {
+          throw new Error("Sitzreihe und Sitzart sind Pflicht.");
+        }
+
+        const project = state.projects.find((p) => p.id === input.projectId);
+        const scope = project?.supplyScope ?? "komplettsitz";
+        let nodes = [...state.structureNodes];
+        const created: StructureNode[] = [];
+
+        const push = (n: StructureNode) => {
+          created.push(n);
+          nodes = [...nodes, n];
+        };
+
+        let row = nodes.find(
+          (n) =>
+            n.projectId === input.projectId &&
+            n.type === "sitzreihe" &&
+            n.label.toLowerCase() === rowLabel.toLowerCase(),
+        );
+        if (!row) {
+          const sortOrder =
+            nodes.filter((n) => n.projectId === input.projectId && n.type === "sitzreihe")
+              .length + 1;
+          row = {
+            id: uid(),
+            projectId: input.projectId,
+            parentId: null,
+            type: "sitzreihe",
+            label: rowLabel,
+            sortOrder,
+          };
+          push(row);
+        }
+
+        let seat = nodes.find(
+          (n) =>
+            n.projectId === input.projectId &&
+            n.type === "sitzvariante" &&
+            n.parentId === row!.id &&
+            n.label.toLowerCase() === seatLabel.toLowerCase(),
+        );
+        if (!seat) {
+          const sortOrder =
+            nodes.filter((n) => n.parentId === row!.id && n.type === "sitzvariante")
+              .length + 1;
+          const seatId = uid();
+          seat = {
+            id: seatId,
+            projectId: input.projectId,
+            parentId: row.id,
+            type: "sitzvariante",
+            label: seatLabel,
+            sortOrder,
+          };
+          push(seat);
+          for (const m of modulesForScope(input.projectId, seatId, scope)) {
+            push(m);
+          }
+        }
+
+        const moduleKind: ModuleKind =
+          input.moduleKind === "metall" ? "struktur" : input.moduleKind;
+
+        let modul = nodes.find(
+          (n) =>
+            n.projectId === input.projectId &&
+            n.parentId === seat!.id &&
+            n.type === "modul" &&
+            (n.moduleKind === moduleKind ||
+              (moduleKind === "struktur" && n.moduleKind === "metall")),
+        );
+
+        if (!modul) {
+          const sortOrder =
+            nodes.filter((n) => n.parentId === seat!.id && n.type === "modul").length + 1;
+          modul = {
+            id: uid(),
+            projectId: input.projectId,
+            parentId: seat.id,
+            type: "modul",
+            label:
+              moduleKind === "bezug"
+                ? "Bezug"
+                : moduleKind === "schnittstelle"
+                  ? "Anbindung"
+                  : moduleKind === "schaum"
+                    ? "Schaum"
+                    : moduleKind === "kunststoff"
+                      ? "Kunststoff"
+                      : moduleKind === "profil"
+                        ? "Profil"
+                        : "Struktur / Metall",
+            moduleKind,
+            sortOrder,
+          };
+          push(modul);
+        }
+
+        let leafId = modul.id;
+
+        if (moduleKind === "bezug") {
+          const cover = (input.coverLabel ?? "Standard").trim() || "Standard";
+          let bezugVar = nodes.find(
+            (n) =>
+              n.projectId === input.projectId &&
+              n.parentId === modul!.id &&
+              n.type === "bezugvariante" &&
+              n.label.toLowerCase() === cover.toLowerCase(),
+          );
+          if (!bezugVar) {
+            const sortOrder =
+              nodes.filter((n) => n.parentId === modul!.id && n.type === "bezugvariante")
+                .length + 1;
+            bezugVar = {
+              id: uid(),
+              projectId: input.projectId,
+              parentId: modul.id,
+              type: "bezugvariante",
+              label: cover,
+              sortOrder,
+            };
+            push(bezugVar);
+          }
+          leafId = bezugVar.id;
+        }
+
+        if (created.length > 0) {
+          mutate((prev) => ({
+            ...prev,
+            structureNodes: [...prev.structureNodes, ...created],
+          }));
+          logActivity({
+            action: "Struktur ergänzt",
+            entityType: "structure",
+            entityId: leafId,
+            detail: `${rowLabel} · ${seatLabel}${
+              input.coverLabel ? ` · ${input.coverLabel}` : ""
+            }`,
+          });
+        }
+
+        return leafId;
       },
       saveProgramTemplate: (tpl) => {
         const created: ProgramTemplate = {

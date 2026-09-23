@@ -203,8 +203,8 @@ export default function ProjectDetailPage() {
       >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          <CreateStructureForm projectId={project.id} />
           <CreatePartForm projectId={project.id} />
+          <CreateStructureForm projectId={project.id} />
         </div>
         <div className="flex rounded-full bg-[var(--bg-elevated)] p-0.5">
           <button

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CreateProgramWizard } from "@/components/CreateProgramWizard";
+import { CreateSimpleProjectForm } from "@/components/CreateSimpleProjectForm";
 import {
   type ArtFilter,
   ArtFilterLayout,
@@ -47,17 +48,22 @@ export default function ProjectsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Kunde → Programm → Bauteile"
+        eyebrow="Projekt → Bauteile → Struktur wächst"
         title="Projekte"
-        description="Nach Art filtern (Bezug, Kunststoff, Schaum, Metall …). Fortschritt = Anteil freigegebener Bauteile."
+        description="Erst ein Projekt anlegen, dann Bauteile je Kategorie. Sitzreihen entstehen mit den Bauteilen."
         actions={
-          <Button onClick={() => setShowWizard(true)}>Neues Programm</Button>
+          <div className="flex flex-wrap gap-2">
+            <CreateSimpleProjectForm />
+            <Button variant="secondary" onClick={() => setShowWizard(true)}>
+              Großer Assistent
+            </Button>
+          </div>
         }
       />
 
       {showWizard ? (
         <Modal
-          title="Neues Programm anlegen"
+          title="Programm-Assistent (erweitert)"
           size="xl"
           onClose={() => setShowWizard(false)}
         >
