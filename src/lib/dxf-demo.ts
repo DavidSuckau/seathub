@@ -1,4 +1,6 @@
 /** Erzeugt eine einfache klassische 2D-DXF (Sitz-/Profil-Umriss) für die Demo. */
+import type { Part } from "./types";
+
 export function createDemoDxf(partNumber: string, kind: "bezug" | "profil" | "sonstig" = "sonstig"): string {
   const label = partNumber.replace(/"/g, "");
   const shapes =
@@ -166,4 +168,22 @@ function genericEntities(): string[] {
     ...line(180, 30, 30, 140),
     ...circle(105, 85, 20),
   ];
+}
+
+export function demoDxfKindForPart(
+  part: Pick<Part, "partKind" | "moduleKind">,
+): "bezug" | "profil" | "sonstig" {
+  if (part.partKind === "profil" || part.partKind === "befestigung") return "profil";
+  if (part.moduleKind === "bezug" || part.partKind === "hauptteil") return "bezug";
+  return "sonstig";
+}
+
+/** Hinterlegte Demo-DXF für einen Stand / ein Bauteil */
+export function demoDxfAttachment(part: Pick<Part, "partNumber" | "partKind" | "moduleKind">) {
+  const kind = demoDxfKindForPart(part);
+  return {
+    fileName: `${part.partNumber}.dxf`,
+    content: createDemoDxf(part.partNumber, kind),
+    uploadedAt: new Date().toISOString(),
+  };
 }

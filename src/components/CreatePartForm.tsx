@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { readImageFile } from "@/components/LopPhotoGallery";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { navigateToPart, withBasePath } from "@/lib/nav";
+import { demoDxfAttachment } from "@/lib/dxf-demo";
 import { pickDemoPartImage } from "@/lib/part-images";
 import { moduleKindLabel } from "@/lib/structure";
 import { useStore } from "@/lib/store";
@@ -208,11 +209,12 @@ export function CreatePartForm({
         userType: "intern",
         reason: "Bauteil angelegt",
         status: "in_entwicklung",
-        drawings: [],
+        drawings: [`${created.partNumber}.dxf`],
         photos: [],
         documents: [],
         bomItems: [],
         files: [],
+        dxf: demoDxfAttachment(created),
       });
       openId = created.id;
     }

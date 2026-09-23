@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui";
-import { createDemoDxf } from "@/lib/dxf-demo";
+import { demoDxfAttachment } from "@/lib/dxf-demo";
 import { dxfToSvgPaths } from "@/lib/dxf-to-svg";
 import type { Part } from "@/lib/types";
 
@@ -46,7 +46,6 @@ export function DxfViewerPanel({
       if (text.length > MAX_CHARS) {
         throw new Error("DXF zu groß (max. ca. 800 KB Text).");
       }
-      // parse probe
       dxfToSvgPaths(text);
       onChange({
         fileName: file.name,
@@ -63,18 +62,7 @@ export function DxfViewerPanel({
 
   function loadDemo() {
     setError(null);
-    const kind =
-      part.partKind === "profil" || part.partKind === "befestigung"
-        ? "profil"
-        : part.moduleKind === "bezug"
-          ? "bezug"
-          : "sonstig";
-    const content = createDemoDxf(part.partNumber, kind);
-    onChange({
-      fileName: `${part.partNumber}_demo.dxf`,
-      content,
-      uploadedAt: new Date().toISOString(),
-    });
+    onChange(demoDxfAttachment(part));
   }
 
   const pad = 12;
@@ -82,7 +70,6 @@ export function DxfViewerPanel({
   if (rendered && !("error" in rendered)) {
     const w = Math.max(rendered.maxX - rendered.minX, 1);
     const h = Math.max(rendered.maxY - rendered.minY, 1);
-    // SVG Y nach unten – DXF Y nach oben → flip
     viewBox = `${rendered.minX - pad} ${-(rendered.maxY + pad)} ${w + pad * 2} ${h + pad * 2}`;
   }
 
@@ -90,10 +77,11 @@ export function DxfViewerPanel({
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">CAD / DXF (2D)</p>
+          <p className="text-sm font-medium">
+            {dxf?.fileName ?? `${part.partNumber}.dxf`}
+          </p>
           <p className="text-xs text-[var(--ink-muted)]">
-            Klassische 2D-Zeichnung · DXF laden oder Demo erzeugen
-            {dxf ? ` · ${dxf.fileName}` : ""}
+            Hinterlegte 2D-CAD-Zeichnung · wird beim Öffnen des Bauteils angezeigt
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -109,16 +97,11 @@ export function DxfViewerPanel({
             disabled={busy}
             onClick={() => inputRef.current?.click()}
           >
-            {busy ? "Lädt…" : "DXF laden"}
+            {busy ? "Lädt…" : "DXF ersetzen"}
           </Button>
           <Button variant="ghost" onClick={loadDemo}>
-            Demo-DXF
+            Demo neu
           </Button>
-          {dxf ? (
-            <Button variant="ghost" onClick={() => onChange(undefined)}>
-              Entfernen
-            </Button>
-          ) : null}
         </div>
       </div>
 
@@ -130,14 +113,9 @@ export function DxfViewerPanel({
       ) : null}
 
       <div className="overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[#fbfbfb]">
-        {!dxf ? (
+        {!dxf?.content ? (
           <div className="flex aspect-[16/10] flex-col items-center justify-center gap-2 px-4 text-center">
-            <p className="text-sm text-[var(--ink-muted)]">
-              Noch keine DXF an diesem Stand.
-            </p>
-            <Button variant="secondary" onClick={loadDemo}>
-              Demo-Zeichnung erzeugen
-            </Button>
+            <p className="text-sm text-[var(--ink-muted)]">Zeichnung wird geladen…</p>
           </div>
         ) : rendered && !("error" in rendered) ? (
           <svg
@@ -168,7 +146,7 @@ export function DxfViewerPanel({
       </div>
       {rendered && !("error" in rendered) ? (
         <p className="mt-2 text-xs text-[var(--ink-subtle)]">
-          {rendered.entityCount} Elemente · 2D-Ansicht (Linien, Polylinien, Kreise, Bögen)
+          {rendered.entityCount} Elemente · 2D · {dxf.fileName}
         </p>
       ) : null}
     </div>

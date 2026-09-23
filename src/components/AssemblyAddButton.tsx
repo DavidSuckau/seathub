@@ -6,6 +6,7 @@ import { Button, Field, Modal, inputClass } from "@/components/ui";
 import { getUsedOnPartIds } from "@/lib/components";
 import { taskTypeLabel } from "@/lib/labels";
 import { navigateToPart, navigateToTask, withBasePath } from "@/lib/nav";
+import { demoDxfAttachment } from "@/lib/dxf-demo";
 import { orderTypeDepartment } from "@/lib/orders";
 import { pickDemoPartImage } from "@/lib/part-images";
 import { useStore } from "@/lib/store";
@@ -110,11 +111,12 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
       userType: "intern",
       reason: `${thing} am Bezug ${parent.partNumber} angelegt`,
       status: "in_entwicklung",
-      drawings: [],
+      drawings: [`${created.partNumber}.dxf`],
       photos: [],
       documents: [],
       bomItems: [],
       files: [],
+      dxf: demoDxfAttachment(created),
     });
 
     if (withCad) {

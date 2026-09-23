@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AssemblyAddButton } from "@/components/AssemblyAddButton";
 import { CreatePartOrderForm } from "@/components/CreatePartOrderForm";
@@ -22,6 +22,7 @@ import {
   isAssemblyPart,
   isSharedComponent,
 } from "@/lib/components";
+import { demoDxfAttachment } from "@/lib/dxf-demo";
 import { formatDate, formatDateTime, taskTypeLabel } from "@/lib/labels";
 import { partKindLabel } from "@/lib/orders";
 import { formatWeightGrams } from "@/lib/progress";
@@ -53,6 +54,19 @@ export function PartDetailView({ partId }: { partId: string }) {
       ? standParam
       : (part?.currentRevision ?? revisions[revisions.length - 1]?.revision);
   const selected = revisions.find((r) => r.revision === selectedStand);
+
+  // Hinterlegte DXF am Stand sicherstellen – beim Öffnen des Bauteils sichtbar
+  const dxfSeededFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!part || !selected) return;
+    if (selected.dxf?.content) {
+      dxfSeededFor.current = selected.id;
+      return;
+    }
+    if (dxfSeededFor.current === selected.id) return;
+    dxfSeededFor.current = selected.id;
+    updateRevision(selected.id, { dxf: demoDxfAttachment(part) });
+  }, [part, selected, updateRevision]);
 
   if (!part) {
     return (
@@ -585,25 +599,27 @@ export function PartDetailView({ partId }: { partId: string }) {
           </div>
 
           <div className="space-y-6">
-            <Panel title="Zeichnungen (dieser Stand)">
-              <div className="mb-4 space-y-2">
-                {(selected.drawings.length ? selected.drawings : selected.files).map((f) => (
-                  <div
-                    key={f}
-                    className="rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2.5 text-sm font-medium"
-                  >
-                    {f}
-                  </div>
-                ))}
-                {selected.drawings.length === 0 && selected.files.length === 0 ? (
-                  <p className="text-sm text-[var(--ink-subtle)]">Keine Zeichnungsdatei-Namen.</p>
-                ) : null}
-              </div>
+            <Panel title="CAD-Zeichnung (dieser Stand)">
               <DxfViewerPanel
                 part={part}
                 dxf={selected.dxf}
                 onChange={(dxf) => updateRevision(selected.id, { dxf })}
               />
+              {(selected.drawings.length > 0 || selected.files.length > 0) && (
+                <div className="mt-4 border-t border-[var(--line)] pt-3">
+                  <p className="mb-2 text-xs text-[var(--ink-subtle)]">Weitere Dateireferenzen</p>
+                  <div className="space-y-2">
+                    {(selected.drawings.length ? selected.drawings : selected.files).map((f) => (
+                      <div
+                        key={f}
+                        className="rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm"
+                      >
+                        {f}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Panel>
 
             <Panel title="Dokumente">
