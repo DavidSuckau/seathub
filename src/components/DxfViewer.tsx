@@ -144,7 +144,7 @@ export function DxfViewerPanel({
           </div>
         )}
       </div>
-      {rendered && !("error" in rendered) ? (
+      {rendered && !("error" in rendered) && dxf ? (
         <p className="mt-2 text-xs text-[var(--ink-subtle)]">
           {rendered.entityCount} Elemente · 2D · {dxf.fileName}
         </p>
