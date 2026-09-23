@@ -181,11 +181,13 @@ export default function ProjectDetailPage() {
         </p>
       </Panel>
 
-      <Panel title="Sitz – Teilekatalog" className="mb-6">
+      <Panel title="Sitzzeichnung" className="mb-6">
         <p className="mb-3 text-sm text-[var(--ink-muted)]">
-          Positionsnummern anklicken – die Bauteile darunter werden gefiltert.
+          Eigene Zeichnung: Module werden sichtbar, sobald Bauteile da sind. Neue Profile
+          erscheinen automatisch in der Zeichnung.
         </p>
         <SeatExplodedView
+          parts={projectParts}
           selected={artFilter}
           onSelect={setArtFilter}
           counts={moduleCounts}
