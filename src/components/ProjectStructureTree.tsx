@@ -22,6 +22,7 @@ import {
   structureTypeLabel,
 } from "@/lib/structure";
 import type { Part, Revision, StructureNode } from "@/lib/types";
+import { partPath } from "@/lib/nav";
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -67,7 +68,7 @@ function PartRow({
   return (
     <div className="ml-3 rounded-lg border border-[var(--line)] bg-[var(--bg)]/50 sm:ml-5">
       <Link
-        href={`/parts/${part.id}?stand=${part.currentRevision}`}
+        href={partPath(part.id, { stand: part.currentRevision })}
         className="org-node flex items-start gap-2.5 px-2.5 py-2.5 hover:bg-[var(--bg-elevated)]"
       >
         <PartImageThumb part={part} size="sm" className="mt-0.5" />
@@ -101,7 +102,7 @@ function PartRow({
           {showRevs.map((r) => (
             <Link
               key={r.id}
-              href={`/parts/${part.id}?stand=${r.revision}`}
+              href={partPath(part.id, { stand: r.revision })}
               className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-medium text-[var(--ink-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
               title={revisionStatusLabel[r.status]}
             >
@@ -115,7 +116,7 @@ function PartRow({
 
       {mirror ? (
         <Link
-          href={`/parts/${mirror.id}?stand=${mirror.currentRevision}`}
+          href={partPath(mirror.id, { stand: mirror.currentRevision })}
           className="flex items-center gap-2 border-t border-dashed border-[var(--line)] px-2.5 py-2 text-xs text-[var(--ink-muted)] hover:bg-[var(--bg-elevated)]"
         >
           <span className="rounded bg-[var(--watch-soft)] px-1.5 py-0.5 font-medium text-[var(--watch)]">

@@ -6,6 +6,7 @@ import { AssemblyAddButton } from "@/components/AssemblyAddButton";
 import { Field, Panel, StatusPill, inputClass } from "@/components/ui";
 import { useStore } from "@/lib/store";
 import type { Part, Task, TaskType } from "@/lib/types";
+import { partPath } from "@/lib/nav";
 
 /** Nur in der Entwicklung: Profile/Komponenten anlegen */
 const CAN_CREATE_COMPONENTS: TaskType[] = [
@@ -110,7 +111,10 @@ export function TaskProfilePanel({ task }: { task: Task }) {
             {shopfloorParts.map((p) => (
               <li key={p.id}>
                 <Link
-                  href={`/parts/${p.id}${task.revisionStand ? `?stand=${task.revisionStand}` : ""}`}
+                  href={partPath(
+                    p.id,
+                    task.revisionStand ? { stand: task.revisionStand } : undefined,
+                  )}
                   className="flex flex-wrap items-center justify-between gap-2 py-3 transition hover:bg-[var(--bg-elevated)]"
                 >
                   <div>
@@ -172,7 +176,7 @@ export function TaskProfilePanel({ task }: { task: Task }) {
               {childrenOnParent.map((p) => (
                 <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                   <Link
-                    href={`/parts/${p.id}`}
+                    href={partPath(p.id)}
                     className="text-sm font-medium hover:text-[var(--accent)]"
                   >
                     <span className="font-mono text-[var(--accent)]">{p.partNumber}</span>

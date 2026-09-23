@@ -26,7 +26,7 @@ import { partReleaseState, projectReleaseProgress } from "@/lib/progress";
 import { useStore } from "@/lib/store";
 import { supplyScopeHint, supplyScopeLabel, equipmentLabels } from "@/lib/structure";
 import type { ModuleKind } from "@/lib/types";
-import { taskPath } from "@/lib/nav";
+import { taskPath, partPath } from "@/lib/nav";
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
@@ -227,7 +227,7 @@ export default function ProjectDetailPage() {
             partsWithoutRelease.map((part) => (
               <li key={part.id}>
                 <Link
-                  href={`/parts/${part.id}`}
+                  href={partPath(part.id)}
                   className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm hover:bg-[var(--bg-elevated)]"
                 >
                   <span className="flex min-w-0 items-center gap-3">

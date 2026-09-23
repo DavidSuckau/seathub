@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
+import { navigateToPart } from "@/lib/nav";
 import { useStore } from "@/lib/store";
 import type { DevelopmentRole, ModuleKind } from "@/lib/types";
 
@@ -14,6 +15,7 @@ export function CreatePartForm({
 }) {
   const { state, addPart, addLeftRightPair } = useStore();
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"single" | "pair" | "virtual">("pair");
   const [form, setForm] = useState({
     structureNodeId: "",
@@ -42,12 +44,25 @@ export function CreatePartForm({
   const defaultNode = attachNodes[0]?.id ?? "";
 
   function submit() {
+    setError(null);
     const structureNodeId = form.structureNodeId || defaultNode;
-    if (!structureNodeId || !form.baseName.trim()) return;
+    if (!structureNodeId) {
+      setError("Keine Struktur im Programm – zuerst Sitzstruktur anlegen.");
+      return;
+    }
+    if (!form.baseName.trim()) {
+      setError("Bitte eine Bezeichnung eingeben.");
+      return;
+    }
+
+    let openId: string | undefined;
 
     if (mode === "pair") {
-      if (!form.partNumberLeft.trim() || !form.partNumberRight.trim()) return;
-      addLeftRightPair({
+      if (!form.partNumberLeft.trim() || !form.partNumberRight.trim()) {
+        setError("Teilenummern Links und Rechts sind Pflicht.");
+        return;
+      }
+      const pair = addLeftRightPair({
         projectId,
         structureNodeId,
         baseName: form.baseName.trim(),
@@ -58,17 +73,19 @@ export function CreatePartForm({
         engineerUserId: form.engineerUserId,
         coverDeveloperUserId: form.coverDeveloperUserId,
       });
+      openId = pair.master.id;
     } else if (mode === "virtual") {
       const tn =
         form.partNumber.trim() ||
         `VIRT-${form.baseName.trim().slice(0, 12).replace(/\s+/g, "-").toUpperCase()}`;
-      addPart({
+      const created = addPart({
         projectId,
         structureNodeId,
         name: form.baseName.trim(),
         partNumber: tn,
         side: "einzeln",
         moduleKind: "bezug",
+        partKind: "hauptteil",
         developmentRole: "eigenstaendig",
         engineerUserId: form.engineerUserId,
         coverDeveloperUserId: form.coverDeveloperUserId,
@@ -78,15 +95,20 @@ export function CreatePartForm({
           form.interfaceNote.trim() ||
           "Virtueller Bezug – Platzhalter für frühe Entwicklung und Aufträge.",
       });
+      openId = created.id;
     } else {
-      if (!form.partNumber.trim()) return;
-      addPart({
+      if (!form.partNumber.trim()) {
+        setError("Teilenummer ist Pflicht.");
+        return;
+      }
+      const created = addPart({
         projectId,
         structureNodeId,
         name: form.baseName.trim(),
         partNumber: form.partNumber.trim(),
         side: "einzeln",
         moduleKind: form.moduleKind,
+        partKind: form.moduleKind === "schaum" ? "schaum" : "hauptteil",
         developmentRole: form.developmentRole,
         engineerUserId: form.engineerUserId,
         coverDeveloperUserId:
@@ -96,7 +118,9 @@ export function CreatePartForm({
         currentRevision: "01",
         interfaceNote: form.interfaceNote.trim() || undefined,
       });
+      openId = created.id;
     }
+
     setOpen(false);
     setForm((f) => ({
       ...f,
@@ -107,6 +131,7 @@ export function CreatePartForm({
       interfaceNote: "",
     }));
     onCreated?.();
+    if (openId) navigateToPart(openId);
   }
 
   return (
@@ -129,6 +154,7 @@ export function CreatePartForm({
                 type="button"
                 onClick={() => {
                   setMode(m);
+                  setError(null);
                   if (m === "virtual") {
                     setForm((f) => ({ ...f, moduleKind: "bezug" }));
                   }
@@ -156,12 +182,26 @@ export function CreatePartForm({
             </p>
           ) : null}
 
+          {attachNodes.length === 0 ? (
+            <p className="mb-4 rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
+              In diesem Programm fehlt noch die Sitzstruktur (Module / Bezugvarianten). Bitte
+              zuerst Struktur anlegen, dann Bauteile.
+            </p>
+          ) : null}
+
+          {error ? (
+            <p className="mb-3 rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
+              {error}
+            </p>
+          ) : null}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Struktur-Knoten">
               <select
                 className={inputClass}
                 value={form.structureNodeId || defaultNode}
                 onChange={(e) => setForm({ ...form, structureNodeId: e.target.value })}
+                disabled={attachNodes.length === 0}
               >
                 {attachNodes.map((n) => (
                   <option key={n.id} value={n.id}>
@@ -308,7 +348,9 @@ export function CreatePartForm({
             </Field>
           </div>
           <div className="mt-4 flex gap-2">
-            <Button onClick={submit}>Speichern</Button>
+            <Button onClick={submit} disabled={attachNodes.length === 0}>
+              Speichern
+            </Button>
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Abbrechen
             </Button>

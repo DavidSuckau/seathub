@@ -12,6 +12,7 @@ import {
 } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { LopStatus } from "@/lib/types";
+import { partPath } from "@/lib/nav";
 
 const statuses = Object.keys(lopStatusLabel) as LopStatus[];
 
@@ -207,7 +208,7 @@ export default function LopDetailPage() {
                 <dt className="text-[var(--ink-subtle)]">Bauteil</dt>
                 <dd className="mt-1 font-medium">
                   {part ? (
-                    <Link href={`/parts/${part.id}`}>
+                    <Link href={partPath(part.id)}>
                       {part.partNumber} – {part.name}
                     </Link>
                   ) : (

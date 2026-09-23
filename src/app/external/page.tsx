@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button, PageHeader, Panel, StatusPill } from "@/components/ui";
 import { formatDate, taskStatusLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
+import { partPath } from "@/lib/nav";
 
 export default function ExternalPage() {
   const { state, currentUser, updateTask } = useStore();
@@ -52,7 +53,7 @@ export default function ExternalPage() {
                     <dt className="text-[var(--ink-subtle)]">Bauteil / Revision</dt>
                     <dd className="font-medium">
                       {part ? (
-                        <Link href={`/parts/${part.id}`} className="hover:text-[var(--accent)]">
+                        <Link href={partPath(part.id)} className="hover:text-[var(--accent)]">
                           {part.partNumber} · Rev. {part.currentRevision}
                         </Link>
                       ) : (

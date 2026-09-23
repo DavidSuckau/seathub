@@ -29,6 +29,16 @@ export function taskPath(taskId: string): string {
   return `/tasks/view/?id=${encodeURIComponent(taskId)}`;
 }
 
+/** Bauteildetail – stabil für neu angelegte IDs auf GitHub Pages. */
+export function partPath(
+  partId: string,
+  opts?: { stand?: string },
+): string {
+  const q = new URLSearchParams({ id: partId });
+  if (opts?.stand) q.set("stand", opts.stand);
+  return `/parts/view/?${q.toString()}`;
+}
+
 /** Client-Navigation inkl. basePath (Pages-Deploy). */
 export function navigate(path: string): void {
   if (typeof window === "undefined") return;
@@ -37,4 +47,11 @@ export function navigate(path: string): void {
 
 export function navigateToTask(taskId: string): void {
   navigate(taskPath(taskId));
+}
+
+export function navigateToPart(
+  partId: string,
+  opts?: { stand?: string },
+): void {
+  navigate(partPath(partId, opts));
 }

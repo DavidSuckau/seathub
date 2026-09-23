@@ -7,7 +7,7 @@ import { taskTypeLabel } from "@/lib/labels";
 import { orderTypeDepartment } from "@/lib/orders";
 import { useStore } from "@/lib/store";
 import type { Part, PartKind } from "@/lib/types";
-import { navigate, navigateToTask } from "@/lib/nav";
+import { navigateToTask, navigateToPart } from "@/lib/nav";
 
 type Mode =
   | null
@@ -30,6 +30,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
   const { addPart, addRevision, addTask, state, currentUser, linkComponentToAssembly } =
     useStore();
   const [mode, setMode] = useState<Mode>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
     partNumber: "",
     name: "",
@@ -49,6 +50,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
   function close() {
     setMode(null);
     setLinkId("");
+    setFormError(null);
     setForm({
       partNumber: "",
       name: "",
@@ -73,7 +75,11 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
   }
 
   function goToCad() {
-    if (!form.partNumber.trim() || !form.name.trim()) return;
+    if (!form.partNumber.trim() || !form.name.trim()) {
+      setFormError("Teilenummer und Bezeichnung sind Pflicht.");
+      return;
+    }
+    setFormError(null);
     setMode("cad");
   }
 
@@ -141,7 +147,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
     }
 
     close();
-    navigate(`/parts/${created.id}`);
+    navigateToPart(created.id);
   }
 
   const thingLabel = kindLabel[form.partKind] ?? "Komponente";
@@ -219,6 +225,11 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
               ? "Profile haben eigene Teilenummer und Zeichnung."
               : "Komponente mit eigener Teilenummer am Bezug."}
           </p>
+          {formError ? (
+            <p className="mb-3 rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
+              {formError}
+            </p>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Teilenummer">
               <input

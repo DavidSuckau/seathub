@@ -7,6 +7,7 @@ import { partKindLabel } from "@/lib/orders";
 import { moduleKindLabel, sideLabel } from "@/lib/structure";
 import { useStore } from "@/lib/store";
 import type { Part } from "@/lib/types";
+import { partPath } from "@/lib/nav";
 
 /**
  * Auf jedem Profil: klickbare Liste aller Bezüge/Bauteile, die dieses Profil verwenden.
@@ -42,7 +43,7 @@ export function ProfileUsagePanel({ part }: { part: Part }) {
         {usedOn.map((a) => (
           <li key={a.id}>
             <Link
-              href={`/parts/${a.id}`}
+              href={partPath(a.id)}
               className="flex flex-wrap items-center justify-between gap-2 py-3 transition hover:bg-[var(--bg)]/80"
             >
               <div>
