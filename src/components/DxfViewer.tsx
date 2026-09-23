@@ -120,8 +120,8 @@ export function DxfViewerPanel({
         ) : rendered && !("error" in rendered) ? (
           <svg
             viewBox={viewBox}
-            className="h-auto w-full"
-            style={{ maxHeight: 420 }}
+            className="h-auto w-full max-w-none"
+            style={{ maxHeight: 520 }}
             role="img"
             aria-label={`DXF ${dxf.fileName}`}
           >
