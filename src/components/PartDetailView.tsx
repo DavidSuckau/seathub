@@ -359,9 +359,8 @@ export function PartDetailView({ partId }: { partId: string }) {
       </Panel>
 
       {selected ? (
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
-          <div className="space-y-6">
-            <Panel
+        <div className="w-full space-y-6">
+          <Panel
               title={`Stand ${selected.revision} – ${selected.title}`}
               action={
                 <StatusPill tone={revisionStatusTone(selected.status)}>
@@ -596,9 +595,7 @@ export function PartDetailView({ partId }: { partId: string }) {
                 </ul>
               </Panel>
             ) : null}
-          </div>
 
-          <div className="space-y-6">
             <Panel title="CAD-Zeichnung (dieser Stand)">
               <DxfViewerPanel
                 part={part}
@@ -640,14 +637,14 @@ export function PartDetailView({ partId }: { partId: string }) {
             </Panel>
 
             <Panel title="Fotos">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {selected.photos.length === 0 ? (
-                  <p className="col-span-2 text-sm text-[var(--ink-subtle)]">Keine Fotos.</p>
+                  <p className="col-span-full text-sm text-[var(--ink-subtle)]">Keine Fotos.</p>
                 ) : (
                   selected.photos.map((ph) => (
                     <div
                       key={ph}
-                      className="flex aspect-[4/3] items-center justify-center rounded-lg border border-dashed border-[var(--line-strong)] bg-[linear-gradient(145deg,#e8eef2,#f7f5f2)] p-2 text-center text-xs text-[var(--ink-subtle)]"
+                      className="flex aspect-[4/3] w-full items-center justify-center rounded-lg border border-dashed border-[var(--line-strong)] bg-[linear-gradient(145deg,#e8eef2,#f7f5f2)] p-2 text-center text-xs text-[var(--ink-subtle)]"
                     >
                       {ph}
                     </div>
@@ -655,7 +652,6 @@ export function PartDetailView({ partId }: { partId: string }) {
                 )}
               </div>
             </Panel>
-          </div>
         </div>
       ) : (
         <Panel>

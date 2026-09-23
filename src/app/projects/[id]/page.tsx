@@ -163,7 +163,7 @@ export default function ProjectDetailPage() {
       </p>
 
       <Panel title="Gesamtfortschritt Freigabe" className="mb-6">
-        <div className="max-w-md">
+        <div className="w-full">
           <ProgressBar
             percent={progress.percent}
             label="Anteil Bauteile mit Freigabe"
@@ -279,7 +279,7 @@ export default function ProjectDetailPage() {
         </ul>
       </Panel>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid w-full gap-6 lg:grid-cols-2">
         <Panel title="Aufträge">
           <ul className="divide-y divide-[var(--line)]">
             {tasks.length === 0 ? (

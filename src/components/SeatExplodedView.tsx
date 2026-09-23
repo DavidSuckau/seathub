@@ -103,8 +103,8 @@ export function SeatExplodedView({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(220px,0.75fr)]">
-      <div className="overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[#fafbfc]">
+    <div className="flex w-full flex-col gap-4">
+      <div className="w-full overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[#fafbfc]">
         <svg
           viewBox="0 0 640 480"
           className="h-auto w-full"
@@ -379,10 +379,11 @@ export function SeatExplodedView({
         </p>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--ink-subtle)]">
+      <div className="w-full">
+        <p className="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-[var(--ink-subtle)]">
           In der Zeichnung
         </p>
+        <div className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {LAYERS.map((l) => {
           const list = byLayer[l.id];
           const isOn = selected === l.id;
@@ -391,7 +392,7 @@ export function SeatExplodedView({
               key={l.id}
               type="button"
               onClick={() => toggle(l.id)}
-              className={`rounded-[var(--radius)] border px-3 py-2.5 text-left transition ${
+              className={`w-full rounded-[var(--radius)] border px-3 py-2.5 text-left transition ${
                 isOn
                   ? "border-[var(--accent)] bg-[var(--accent-soft)]"
                   : "border-[var(--line)] bg-[var(--surface)] hover:border-[var(--accent)]"
@@ -415,17 +416,19 @@ export function SeatExplodedView({
             </button>
           );
         })}
+        </div>
 
         {profiles.length > 0 ? (
-          <div className="mt-2 space-y-1.5 border-t border-[var(--line)] pt-3">
+          <div className="mt-3 w-full space-y-1.5 border-t border-[var(--line)] pt-3">
             <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--ink-subtle)]">
               Profile öffnen
             </p>
+            <div className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {profiles.map((p) => (
               <Link
                 key={p.id}
                 href={partPath(p.id)}
-                className="block rounded-md border border-[var(--line)] px-2.5 py-2 text-sm hover:border-[var(--accent)]"
+                className="block w-full rounded-md border border-[var(--line)] px-2.5 py-2 text-sm hover:border-[var(--accent)]"
               >
                 <span className="font-mono text-[13px] text-[var(--accent)]">
                   {p.partNumber}
@@ -435,13 +438,14 @@ export function SeatExplodedView({
                 </span>
               </Link>
             ))}
+            </div>
           </div>
         ) : null}
 
         <button
           type="button"
           onClick={() => onSelect("alle")}
-          className={`mt-1 rounded-[var(--radius)] border px-3 py-2 text-left text-sm transition ${
+          className={`mt-3 w-full rounded-[var(--radius)] border px-3 py-2 text-left text-sm transition ${
             selected === "alle"
               ? "border-[var(--accent)] bg-[var(--accent-soft)] font-medium"
               : "border-dashed border-[var(--line-strong)] text-[var(--ink-muted)] hover:border-[var(--accent)]"
