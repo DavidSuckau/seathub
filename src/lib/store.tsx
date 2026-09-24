@@ -29,7 +29,7 @@ import {
   isSharedComponent,
 } from "./components";
 import { nextRevisionNumber } from "./revisions";
-import { loadState, resetState, saveState } from "./storage";
+import { loadState, resetState, saveState, downloadStateJson, importStateFromJson, readJsonFile } from "./storage";
 import { supplyScopeLabel } from "./structure";
 import { expandCoverLabels, seatDisplayLabel } from "./program-templates";
 import { pickDemoPartImage } from "./part-images";
@@ -67,6 +67,10 @@ type StoreContextValue = {
   setDemoRole: (role: DemoRole) => void;
   setCurrentUserId: (id: string) => void;
   resetDemo: () => void;
+  /** Gesamten Stand als JSON-Datei herunterladen */
+  exportDataJson: () => void;
+  /** JSON-Datei öffnen und Stand ersetzen */
+  importDataJson: (file: File) => Promise<void>;
   logActivity: (partial: Omit<Activity, "id" | "at" | "actorUserId"> & { actorUserId?: string }) => void;
   addTask: (task: Omit<Task, "id" | "createdAt">) => Task;
   updateTask: (id: string, patch: Partial<Task>) => void;
@@ -347,6 +351,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       resetDemo: () => {
         const seed = resetState();
         setState(seed);
+      },
+      exportDataJson: () => {
+        if (!state) return;
+        downloadStateJson(state);
+      },
+      importDataJson: async (file) => {
+        const raw = await readJsonFile(file);
+        const next = importStateFromJson(raw);
+        setState(next);
       },
       logActivity,
       addTask: (task) => {

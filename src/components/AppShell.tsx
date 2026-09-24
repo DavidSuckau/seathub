@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { demoRoleLabel } from "@/lib/labels";
 import { isTeamLead } from "@/lib/roles";
 import { useStore } from "@/lib/store";
@@ -110,8 +110,15 @@ const roles: DemoRole[] = ["mitarbeiter", "manager", "engineering", "extern"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { state, currentUser, setDemoRole, setCurrentUserId, resetDemo } =
-    useStore();
+  const {
+    state,
+    currentUser,
+    setDemoRole,
+    setCurrentUserId,
+    resetDemo,
+    exportDataJson,
+    importDataJson,
+  } = useStore();
   const teamLead = isTeamLead(currentUser);
   const sections = useMemo(
     () =>
@@ -125,6 +132,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const roleUsers = state.users.filter((u) => u.demoRole === state.demoRole);
   const showStudio = state.demoRole !== "mitarbeiter" && state.demoRole !== "extern";
   const [demoOpen, setDemoOpen] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onPickJson(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setImportError(null);
+    try {
+      await importDataJson(file);
+      setDemoOpen(false);
+    } catch (e) {
+      setImportError(
+        e instanceof Error ? e.message : "Import fehlgeschlagen.",
+      );
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   return (
     <div className="min-h-screen lg:flex">
@@ -256,6 +281,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         </option>
                       ))}
                     </select>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        exportDataJson();
+                        setDemoOpen(false);
+                      }}
+                      className="mb-1 !w-full !justify-center !text-xs"
+                    >
+                      Daten als JSON speichern
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => fileRef.current?.click()}
+                      className="mb-1 !w-full !justify-center !text-xs"
+                    >
+                      JSON öffnen / laden
+                    </Button>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={(e) => onPickJson(e.target.files)}
+                    />
+                    {importError ? (
+                      <p className="mb-2 px-1 text-[11px] text-[var(--danger)]">
+                        {importError}
+                      </p>
+                    ) : null}
                     <Button
                       variant="ghost"
                       onClick={resetDemo}

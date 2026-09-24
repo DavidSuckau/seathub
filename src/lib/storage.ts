@@ -123,3 +123,70 @@ export function resetState(): SeatHubState {
   saveState(seed);
   return seed;
 }
+
+/** Gesamten Stand als JSON-String (schön formatiert) */
+export function stateToJson(state: SeatHubState): string {
+  return JSON.stringify(state, null, 2);
+}
+
+export function downloadStateJson(state: SeatHubState, filename?: string): void {
+  if (typeof window === "undefined") return;
+  const stamp = new Date().toISOString().slice(0, 10);
+  const name = filename ?? `seathub-daten-${stamp}.json`;
+  const blob = new Blob([stateToJson(state)], {
+    type: "application/json;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * JSON-Datei / -Text einlesen und als SeatHub-Stand normalisieren.
+ * Wirft bei ungültigen Daten.
+ */
+export function parseStateJson(raw: string): SeatHubState {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Datei ist kein gültiges JSON.");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("JSON muss ein SeatHub-Datenobjekt sein.");
+  }
+  const obj = parsed as Record<string, unknown>;
+  if (!Array.isArray(obj.users) || !Array.isArray(obj.projects)) {
+    throw new Error(
+      "Ungültige SeatHub-Datei – erwartet u. a. users und projects.",
+    );
+  }
+  const seed = createSeedState();
+  const merged = {
+    ...seed,
+    ...obj,
+    version: typeof obj.version === "number" ? obj.version : seed.version,
+  } as SeatHubState;
+  return normalize(merged);
+}
+
+export function importStateFromJson(raw: string): SeatHubState {
+  const next = parseStateJson(raw);
+  saveState(next);
+  return next;
+}
+
+export async function readJsonFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("Datei konnte nicht gelesen werden."));
+    };
+    reader.onerror = () => reject(new Error("Datei konnte nicht gelesen werden."));
+    reader.readAsText(file, "utf-8");
+  });
+}

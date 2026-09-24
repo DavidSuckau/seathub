@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef, useState } from "react";
 import { Button, PageHeader, Panel, StatusPill } from "@/components/ui";
 import { useStore } from "@/lib/store";
 
@@ -43,8 +44,26 @@ const links = [
 ];
 
 export default function StudioPage() {
-  const { state } = useStore();
+  const { state, exportDataJson, importDataJson } = useStore();
   const isWorker = state.demoRole === "mitarbeiter";
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function onPick(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setErr(null);
+    setMsg(null);
+    try {
+      await importDataJson(file);
+      setMsg(`Geladen: ${file.name}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Import fehlgeschlagen.");
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   return (
     <div>
@@ -65,6 +84,36 @@ export default function StudioPage() {
           über <strong className="text-[var(--ink)]">Mein Tag</strong> und Aufträge.
         </div>
       ) : null}
+
+      <Panel title="Daten sichern & wiederherstellen" className="mb-6">
+        <p className="mb-3 text-sm text-[var(--ink-muted)]">
+          Gesamten Stand (Programme, Bauteile, Aufträge, Material, Organisation …)
+          als JSON speichern oder eine gespeicherte Datei wieder öffnen.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => {
+              exportDataJson();
+              setMsg("JSON heruntergeladen.");
+              setErr(null);
+            }}
+          >
+            Als JSON speichern
+          </Button>
+          <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+            JSON öffnen
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => onPick(e.target.files)}
+          />
+        </div>
+        {msg ? <p className="mt-2 text-sm text-[var(--ok)]">{msg}</p> : null}
+        {err ? <p className="mt-2 text-sm text-[var(--danger)]">{err}</p> : null}
+      </Panel>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {links.map((l) => (
