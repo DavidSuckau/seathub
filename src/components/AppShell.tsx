@@ -113,6 +113,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const {
     state,
     currentUser,
+    flash,
+    clearFlash,
     setDemoRole,
     setCurrentUserId,
     resetDemo,
@@ -350,6 +352,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="min-w-0 w-full flex-1 px-4 py-7 sm:px-6 lg:px-8 xl:px-10">
           {children}
         </main>
+
+        {flash ? (
+          <div
+            role="status"
+            className="fixed bottom-6 left-1/2 z-[80] flex max-w-[min(92vw,28rem)] -translate-x-1/2 items-start gap-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--ink)] shadow-[var(--shadow-md)]"
+          >
+            <p className="min-w-0 flex-1 font-medium">{flash}</p>
+            <button
+              type="button"
+              onClick={clearFlash}
+              className="shrink-0 text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]"
+              aria-label="Meldung schließen"
+            >
+              Schließen
+            </button>
+          </div>
+        ) : null}
 
         <footer className="border-t border-[var(--line)] py-4 text-center text-xs text-[var(--ink-subtle)]">
           SeatHub

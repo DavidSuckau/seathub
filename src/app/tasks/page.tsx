@@ -120,6 +120,7 @@ export default function TasksPage() {
           <CreateOrderWizard
             embedded
             onCancel={() => setShowForm(false)}
+            onCreated={() => setShowForm(false)}
           />
         </Modal>
       ) : null}

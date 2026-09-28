@@ -11,7 +11,6 @@ import {
   StatusPill,
   inputClass,
 } from "@/components/ui";
-import { navigateToTask } from "@/lib/nav";
 import { taskTypeLabel } from "@/lib/labels";
 import { createOrderTileTypes, orderTypeDepartment } from "@/lib/orders";
 import { checklistForTaskType, flowNodeKindLabel } from "@/lib/platform";
@@ -59,12 +58,11 @@ export default function FlowsPage() {
 
   function run() {
     if (!flow || !partId) return;
-    const task = startProcessFlow({
+    startProcessFlow({
       flowId: flow.id,
       projectId,
       partId,
     });
-    if (task) navigateToTask(task.id);
   }
 
   function onSelectNode(nodeId: string) {

@@ -2,10 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import { readImageFile } from "@/components/LopPhotoGallery";
-import { Button, Field, Modal, inputClass } from "@/components/ui";
+import { Button, Field, Modal, StatusPill, inputClass } from "@/components/ui";
 import { getUsedOnPartIds } from "@/lib/components";
 import { taskTypeLabel } from "@/lib/labels";
-import { navigateToPart, navigateToTask, withBasePath } from "@/lib/nav";
+import { withBasePath } from "@/lib/nav";
 import { demoDxfAttachment } from "@/lib/dxf-demo";
 import { suggestedPlannedHours } from "@/lib/capacity";
 import { orderTypeDepartment } from "@/lib/orders";
@@ -20,9 +20,16 @@ const kindLabel: Record<string, string> = {
 };
 
 /**
- * Ein „+“ am Bezug: neues Profil/Komponente in einem Schritt.
+ * Am Bezug: Profil/Komponente anlegen oder bestehendes verknüpfen.
+ * CAD wird nur eingestellt – Zeichner bekommt den Auftrag, du bleibst am Bezug.
  */
-export function AssemblyAddButton({ parent }: { parent: Part }) {
+export function AssemblyAddButton({
+  parent,
+  onAdded,
+}: {
+  parent: Part;
+  onAdded?: (info: { partId: string; cadOrdered: boolean }) => void;
+}) {
   const { addPart, addRevision, addTask, state, currentUser, linkComponentToAssembly } =
     useStore();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -54,7 +61,13 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
     setLinkId("");
     setError(null);
     setWithCad(true);
-    setForm({ partNumber: "", name: "", partKind: "profil", dueDate: "", imageUrl: "" });
+    setForm({
+      partNumber: "",
+      name: "",
+      partKind: "profil",
+      dueDate: "",
+      imageUrl: "",
+    });
   }
 
   async function onPickImage(files: FileList | null) {
@@ -123,7 +136,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
     });
 
     if (withCad) {
-      const task = addTask({
+      addTask({
         title: `${taskTypeLabel.cad} · ${created.partNumber} · Stand 01`,
         type: "cad",
         status: "offen",
@@ -141,13 +154,11 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
         progress: 0,
         description: `Erstzeichnung für ${thing} ${created.name} (${created.partNumber}) am Bezug ${parent.partNumber}. Eingestellt von ${currentUser?.name ?? "User"}.`,
       });
-      close();
-      navigateToTask(task.id);
-      return;
     }
 
     close();
-    navigateToPart(created.id);
+    onAdded?.({ partId: created.id, cadOrdered: withCad });
+    // Am Bezug bleiben – CAD-Auftrag läuft still für den Zeichner
   }
 
   const previewRaw =
@@ -161,31 +172,35 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
     ? form.imageUrl
     : withBasePath(previewRaw);
 
+  const primaryLabel = withCad
+    ? `${kindLabel[form.partKind] ?? "Profil"} anlegen · CAD beauftragen`
+    : `${kindLabel[form.partKind] ?? "Profil"} anlegen`;
+
   return (
     <>
-      <button
-        type="button"
-        title="Hinzufügen"
-        aria-label="Profil oder Komponente hinzufügen"
-        onClick={() => setOpen(true)}
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface)] text-lg font-medium leading-none text-[var(--ink-muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-      >
-        +
-      </button>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        + Profil
+      </Button>
 
       {open ? (
-        <Modal title="Am Bezug hinzufügen" onClose={close} size="lg">
-          <div className="mb-3 flex gap-2">
+        <Modal title="Profil am Bezug" onClose={close} size="lg">
+          <p className="mb-4 text-sm text-[var(--ink-muted)]">
+            Neues Profil anlegen oder ein bestehendes an{" "}
+            <strong className="text-[var(--ink)]">{parent.partNumber}</strong>{" "}
+            hängen.
+          </p>
+
+          <div className="mb-4 flex gap-2">
             <button
               type="button"
               onClick={() => setMode("neu")}
               className={`rounded-md px-3 py-1.5 text-sm font-medium ${
                 mode === "neu"
                   ? "bg-[var(--accent)] text-white"
-                  : "border border-[var(--line)]"
+                  : "border border-[var(--line)] text-[var(--ink-muted)]"
               }`}
             >
-              Neu anlegen
+              Neu
             </button>
             <button
               type="button"
@@ -193,7 +208,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
               className={`rounded-md px-3 py-1.5 text-sm font-medium ${
                 mode === "link"
                   ? "bg-[var(--accent)] text-white"
-                  : "border border-[var(--line)]"
+                  : "border border-[var(--line)] text-[var(--ink-muted)]"
               }`}
             >
               Bestehendes verknüpfen
@@ -249,11 +264,13 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
                     <input
                       className={inputClass}
                       value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, name: e.target.value })
+                      }
                       placeholder="z. B. OKR-Kurzschlussprofil Sitzseite"
                     />
                   </Field>
-                  <Field label="Fertigstellung">
+                  <Field label="Fertigstellung (optional)">
                     <input
                       type="date"
                       className={inputClass}
@@ -263,14 +280,6 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
                       }
                     />
                   </Field>
-                  <label className="flex items-center gap-2 text-sm text-[var(--ink-muted)]">
-                    <input
-                      type="checkbox"
-                      checked={withCad}
-                      onChange={(e) => setWithCad(e.target.checked)}
-                    />
-                    CAD-Zeichnung gleich beauftragen
-                  </label>
                 </div>
                 <div>
                   <p className="mb-1.5 text-sm font-medium">Bild</p>
@@ -280,7 +289,11 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
                     className="relative block aspect-[4/3] w-full overflow-hidden rounded-[var(--radius)] border border-dashed border-[var(--line-strong)]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={preview} alt="" className="h-full w-full object-cover" />
+                    <img
+                      src={preview}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
                     <span className="absolute inset-x-0 bottom-0 bg-[#10151a]/65 py-1 text-center text-[11px] text-white">
                       {form.imageUrl ? "Ersetzen" : "Foto"}
                     </span>
@@ -294,9 +307,30 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
                   />
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+
+              <div className="mt-4 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg)] px-3 py-3">
+                <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={withCad}
+                    onChange={(e) => setWithCad(e.target.checked)}
+                  />
+                  <span>
+                    <span className="font-medium text-[var(--ink)]">
+                      Zeichnung an CAD schicken
+                    </span>
+                    <span className="mt-0.5 block text-xs text-[var(--ink-muted)]">
+                      Erzeugt einen offenen CAD-Auftrag für den Zeichner. Du bleibst
+                      hier am Bezug – der Auftrag öffnet sich nicht.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
                 <Button onClick={createItem} disabled={busy}>
-                  Anlegen
+                  {primaryLabel}
                 </Button>
                 <Button variant="ghost" onClick={close}>
                   Abbrechen
@@ -306,7 +340,8 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
           ) : (
             <>
               <p className="mb-3 text-sm text-[var(--ink-muted)]">
-                Bestehendes Profil an diesen Bezug hängen (geteilt).
+                Bestehendes Profil an diesen Bezug hängen (geteilt – eine Änderung
+                wirkt überall).
               </p>
               <Field label="Profil">
                 <select
@@ -322,6 +357,11 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
                   ))}
                 </select>
               </Field>
+              {linkCandidates.length === 0 ? (
+                <p className="mt-2 text-xs text-[var(--ink-subtle)]">
+                  Keine weiteren Profile in diesem Programm – unter „Neu“ anlegen.
+                </p>
+              ) : null}
               <div className="mt-4 flex gap-2">
                 <Button
                   disabled={!linkId}
@@ -329,6 +369,7 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
                     if (!linkId) return;
                     linkComponentToAssembly(linkId, parent.id);
                     close();
+                    onAdded?.({ partId: linkId, cadOrdered: false });
                   }}
                 >
                   Verknüpfen
@@ -343,6 +384,22 @@ export function AssemblyAddButton({ parent }: { parent: Part }) {
       ) : null}
     </>
   );
+}
+
+/** Offener CAD-Auftrag zu diesem Bauteil? */
+export function hasOpenCadOrder(
+  tasks: { partId?: string; type: string; status: string }[],
+  partId: string,
+): boolean {
+  const done = new Set(["abgeschlossen", "erledigt", "gestoppt"]);
+  return tasks.some(
+    (t) =>
+      t.partId === partId && t.type === "cad" && !done.has(t.status),
+  );
+}
+
+export function CadOrderedPill() {
+  return <StatusPill tone="accent">CAD beim Zeichner</StatusPill>;
 }
 
 /** @deprecated Alias */

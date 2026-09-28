@@ -64,6 +64,10 @@ type StoreContextValue = {
   state: SeatHubState;
   hydrated: boolean;
   currentUser: User | undefined;
+  /** Kurzmeldung nach Aktionen (nicht persistiert) */
+  flash: string | null;
+  notify: (message: string) => void;
+  clearFlash: () => void;
   setDemoRole: (role: DemoRole) => void;
   setCurrentUserId: (id: string) => void;
   resetDemo: () => void;
@@ -288,6 +292,7 @@ function withSave(updater: (prev: SeatHubState) => SeatHubState) {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SeatHubState | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
 
   useEffect(() => {
     setState(loadState());
@@ -300,6 +305,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return withSave(fn)(prev);
     });
   }, []);
+
+  const notify = useCallback((message: string) => {
+    setFlash(message);
+    window.setTimeout(() => {
+      setFlash((cur) => (cur === message ? null : cur));
+    }, 5500);
+  }, []);
+
+  const clearFlash = useCallback(() => setFlash(null), []);
 
   const logActivity = useCallback(
     (partial: Omit<Activity, "id" | "at" | "actorUserId"> & { actorUserId?: string }) => {
@@ -328,6 +342,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       state,
       hydrated,
       currentUser,
+      flash,
+      notify,
+      clearFlash,
       setDemoRole: (role) => {
         mutate((prev) => {
           const match = prev.users.find((u) => u.demoRole === role);
@@ -411,6 +428,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           entityId: created.id,
           detail: created.title,
         });
+        notify(`Auftrag eingestellt: ${created.title}`);
         return created;
       },
       updateTask: (id, patch) => {
@@ -614,6 +632,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           entityId: flow.id,
           detail: created.title,
         });
+        notify(`Auftrag eingestellt: ${created.title}`);
         return created;
       },
       completeTaskAutomated: (taskId, timeSpentMinutes) => {
@@ -827,6 +846,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           entityId: taskId,
           detail: followUp?.title ?? pendingProposal?.label,
         });
+        if (followUp) notify(`Auftrag eingestellt: ${followUp.title}`);
         return { ok: true, followUp, pendingProposal, reachedEnd };
       },
       acceptFollowUpProposal: (taskId) => {
@@ -904,6 +924,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...(prev.agentInsights ?? []),
           ].slice(0, 40),
         }));
+        notify(`Auftrag eingestellt: ${created.title}`);
         return created;
       },
       rejectFollowUpProposal: (taskId, reason) => {
@@ -2145,7 +2166,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       getPart: (id) => state.parts.find((p) => p.id === id),
       getUser: (id) => state.users.find((u) => u.id === id),
     };
-  }, [state, hydrated, mutate, logActivity]);
+  }, [state, hydrated, mutate, logActivity, flash, notify, clearFlash]);
 
   if (!value) {
     return (

@@ -10,7 +10,7 @@ import { TaskLopPanel } from "@/components/TaskLopPanel";
 import { TaskProfilePanel } from "@/components/TaskProfilePanel";
 import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
 import { NextAction } from "@/components/NextAction";
-import { navigateToTask, projectPath } from "@/lib/nav";
+import { projectPath } from "@/lib/nav";
 import {
   formatDateTime,
   formatDuration,
@@ -118,13 +118,6 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
       return;
     }
     setShowComplete(false);
-    if (result.followUp) {
-      const go = window.confirm(
-        `Folgeauftrag erzeugt:\n${result.followUp.title}\n\nJetzt öffnen?`,
-      );
-      if (go) navigateToTask(result.followUp.id);
-      return;
-    }
     if (result.pendingProposal) {
       window.alert(
         `SeatHub empfiehlt: „${result.pendingProposal.label}“ – bitte bestätigen.`,
@@ -133,8 +126,7 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
   }
 
   function acceptProposal() {
-    const created = acceptFollowUpProposal(task!.id);
-    if (created) navigateToTask(created.id);
+    acceptFollowUpProposal(task!.id);
   }
 
   function onStatusChange(next: TaskStatus) {

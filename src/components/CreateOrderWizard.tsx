@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
 import { OrderTypeIcon } from "@/components/OrderTypeIcons";
 import { taskTypeLabel } from "@/lib/labels";
-import { navigateToTask } from "@/lib/nav";
 import {
   WEEK_HOURS,
   formatPlannedHours,
@@ -162,7 +161,6 @@ export function CreateOrderWizard({
         }) in Programm ${project?.code ?? ""}. Stand ${selectedPart.currentRevision}. Kalkuliert: ${hours} h. Eingestellt von ${currentUser?.name ?? "User"}.`,
     });
     onCreated?.(created);
-    navigateToTask(created.id);
   }
 
   const body = (

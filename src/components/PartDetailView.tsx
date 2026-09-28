@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AssemblyAddButton } from "@/components/AssemblyAddButton";
+import { AssemblyAddButton, CadOrderedPill, hasOpenCadOrder } from "@/components/AssemblyAddButton";
 import { CreatePartOrderForm } from "@/components/CreatePartOrderForm";
 import { DevelopmentLoopForm } from "@/components/DevelopmentLoopForm";
 import {
@@ -54,6 +54,7 @@ export function PartDetailView({ partId }: { partId: string }) {
   const part = state.parts.find((p) => p.id === partId);
   const [showLoop, setShowLoop] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [addHint, setAddHint] = useState<string | null>(null);
 
   const revisions = part ? getPartRevisions(state.revisions, part.id) : [];
   const standParam = searchParams.get("stand");
@@ -262,20 +263,39 @@ export function PartDetailView({ partId }: { partId: string }) {
       {isAssembly ? (
         <div className="mb-6">
           <Panel
-            title="Profile & Komponenten am Bezug"
-            action={<AssemblyAddButton parent={part} />}
+            title="Profile & Komponenten"
+            action={
+              <AssemblyAddButton
+                parent={part}
+                onAdded={({ cadOrdered }) => {
+                  setAddHint(
+                    cadOrdered
+                      ? "Profil angelegt. CAD-Auftrag liegt beim Zeichner – du bleibst am Bezug."
+                      : "Profil angelegt und am Bezug verknüpft.",
+                  );
+                  window.setTimeout(() => setAddHint(null), 6000);
+                }}
+              />
+            }
           >
             <p className="mb-3 text-sm text-[var(--ink-muted)]">
-              Profile haben eigene Teilenummern und eigene Stände. Ein Profil kann an mehreren
-              Bezügen hängen (geteilt). Am Bezug-Stand siehst du, welcher Profil-Stand verwendet
-              wird – oft 1:1 übernommen ohne neues CAD.
+              Profile haben eigene Teilenummern. CAD-Aufträge gehen an den Zeichner – ohne dass
+              du den Auftrag öffnen musst.
             </p>
+            {addHint ? (
+              <p className="mb-3 rounded-lg border border-[var(--ok)]/30 bg-[var(--ok-soft)] px-3 py-2 text-sm text-[var(--ok)]">
+                {addHint}
+              </p>
+            ) : null}
             {childParts.length === 0 ? (
-              <p className="text-sm text-[var(--ink-subtle)]">Noch keine Profile hinterlegt.</p>
+              <p className="text-sm text-[var(--ink-subtle)]">
+                Noch keine Profile – mit „+ Profil“ anlegen.
+              </p>
             ) : (
               <ul className="divide-y divide-[var(--line)]">
                 {childParts.map((c) => {
                   const cShared = isSharedComponent(c);
+                  const cadOpen = hasOpenCadOrder(state.tasks, c.id);
                   return (
                     <li
                       key={c.id}
@@ -284,31 +304,36 @@ export function PartDetailView({ partId }: { partId: string }) {
                       <div className="flex min-w-0 items-center gap-3">
                         <PartImageThumb part={c} size="sm" />
                         <div>
-                        <Link
-                          href={partPath(c.id)}
-                          className="font-medium hover:text-[var(--accent)]"
-                        >
-                          <span className="font-mono text-[var(--accent)]">{c.partNumber}</span>
-                          {" · "}
-                          {c.name}
-                        </Link>
-                        <p className="text-xs text-[var(--ink-muted)]">
-                          {c.componentRole ?? partKindLabel[c.partKind ?? "profil"]} · Stand{" "}
-                          {c.currentRevision}
-                          {c.releasedRevision ? ` · Freigabe ${c.releasedRevision}` : ""}
-                          {cShared
-                            ? ` · geteilt (${getUsedOnPartIds(c).length} Bezüge)`
-                            : ""}
-                        </p>
+                          <Link
+                            href={partPath(c.id)}
+                            className="font-medium hover:text-[var(--accent)]"
+                          >
+                            <span className="font-mono text-[var(--accent)]">
+                              {c.partNumber}
+                            </span>
+                            {" · "}
+                            {c.name}
+                          </Link>
+                          <p className="text-xs text-[var(--ink-muted)]">
+                            {c.componentRole ??
+                              partKindLabel[c.partKind ?? "profil"]}{" "}
+                            · Stand {c.currentRevision}
+                            {c.releasedRevision
+                              ? ` · Freigabe ${c.releasedRevision}`
+                              : ""}
+                            {cShared
+                              ? ` · geteilt (${getUsedOnPartIds(c).length} Bezüge)`
+                              : ""}
+                          </p>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {cShared ? <StatusPill tone="watch">geteilt</StatusPill> : null}
-                        <StatusPill tone="accent">
-                          {partKindLabel[c.partKind ?? "profil"]}
-                        </StatusPill>
+                        {cadOpen ? <CadOrderedPill /> : null}
+                        {cShared ? (
+                          <StatusPill tone="watch">geteilt</StatusPill>
+                        ) : null}
                         <Link href={partPath(c.id)}>
-                          <Button variant="secondary">Öffnen · Verwendung</Button>
+                          <Button variant="secondary">Öffnen</Button>
                         </Link>
                       </div>
                     </li>
@@ -330,12 +355,7 @@ export function PartDetailView({ partId }: { partId: string }) {
       ) : null}
 
       <div className="mb-5">
-        <CreatePartOrderForm
-          part={part}
-          onCreated={(t) => {
-            navigateToTask(t.id);
-          }}
-        />
+        <CreatePartOrderForm part={part} />
       </div>
 
       <PartLopPanel part={part} className="mb-6" />
