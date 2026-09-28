@@ -31,7 +31,7 @@ import {
 } from "@/lib/components";
 import { CALENDAR_TODAY } from "@/lib/calendar";
 import { demoDxfAttachment } from "@/lib/dxf-demo";
-import { formatDate, formatDateTime, taskTypeLabel } from "@/lib/labels";
+import { formatDate, formatDateTime, taskStatusLabel, taskTypeLabel } from "@/lib/labels";
 import { partKindLabel } from "@/lib/orders";
 import { formatWeightGrams } from "@/lib/progress";
 import {
@@ -46,6 +46,18 @@ import {
   partPathLabel,
   sideLabel,
 } from "@/lib/structure";
+import { isDoneStatus } from "@/components/CompleteTaskForm";
+
+function statusTone(
+  status: string,
+  needsAssignment?: boolean,
+  assigneeId?: string,
+): "warn" | "ok" | "accent" | "neutral" {
+  if (needsAssignment || !assigneeId) return "warn";
+  if (isDoneStatus(status)) return "ok";
+  if (status === "in_bearbeitung" || status === "zur_pruefung") return "accent";
+  return "neutral";
+}
 
 export function PartDetailView({ partId }: { partId: string }) {
   const searchParams = useSearchParams();
@@ -104,6 +116,16 @@ export function PartDetailView({ partId }: { partId: string }) {
     .filter(Boolean);
   const isAssembly = isAssemblyPart(part);
   const shared = isSharedComponent(part);
+  const partTasks = state.tasks
+    .filter((t) => t.partId === part.id)
+    .slice()
+    .sort((a, b) => {
+      const aDone = isDoneStatus(a.status) ? 1 : 0;
+      const bDone = isDoneStatus(b.status) ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;
+      return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+    });
+  const openCount = partTasks.filter((t) => !isDoneStatus(t.status)).length;
 
   return (
     <div>
@@ -180,6 +202,62 @@ export function PartDetailView({ partId }: { partId: string }) {
           Zum Programm
         </Link>
       </div>
+
+      <Panel
+        title={
+          partTasks.length === 0
+            ? "Aufträge"
+            : `Aufträge · ${openCount} offen${partTasks.length > openCount ? ` · ${partTasks.length - openCount} erledigt` : ""}`
+        }
+        className="mb-6"
+        action={<CreatePartOrderForm part={part} />}
+      >
+        {partTasks.length === 0 ? (
+          <p className="text-sm text-[var(--ink-subtle)]">
+            Noch keine Aufträge zu diesem Bauteil.
+          </p>
+        ) : (
+          <ul className="divide-y divide-[var(--line)]">
+            {partTasks.map((t) => (
+              <li
+                key={t.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={taskPath(t.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateToTask(t.id);
+                    }}
+                    className="font-medium hover:text-[var(--accent)]"
+                  >
+                    {t.title}
+                  </Link>
+                  <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                    {taskTypeLabel[t.type] ?? t.type}
+                    {t.revisionStand ? ` · Stand ${t.revisionStand}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <StatusPill
+                    tone={statusTone(t.status, t.needsAssignment, t.assigneeId)}
+                  >
+                    {t.needsAssignment || !t.assigneeId
+                      ? "Zuweisung offen"
+                      : (taskStatusLabel[t.status] ?? t.status)}
+                  </StatusPill>
+                  {t.assigneeId && !t.needsAssignment ? (
+                    <StatusPill tone="neutral">
+                      {getUser(t.assigneeId)?.name ?? "—"}
+                    </StatusPill>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
 
       <PartHauptbild
         part={part}
@@ -353,10 +431,6 @@ export function PartDetailView({ partId }: { partId: string }) {
           Profils sind unabhängig vom Bezug – eine Bezug-Änderung erzwingt kein neues Profil.
         </div>
       ) : null}
-
-      <div className="mb-5">
-        <CreatePartOrderForm part={part} />
-      </div>
 
       <PartLopPanel part={part} className="mb-6" />
 
@@ -746,41 +820,6 @@ export function PartDetailView({ partId }: { partId: string }) {
             </li>
           ))}
         </ol>
-      </Panel>
-
-      <Panel title="Aufträge zu diesem Bauteil" className="mt-6">
-        <ul className="space-y-2 text-sm">
-          {state.tasks.filter((t) => t.partId === part.id).length === 0 ? (
-            <li className="text-[var(--ink-subtle)]">
-              Noch keine Aufträge – über „Auftrag zum Bauteil“ einstellen.
-            </li>
-          ) : (
-            state.tasks
-              .filter((t) => t.partId === part.id)
-              .map((t) => (
-                <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] py-2">
-                  <Link
-                    href={taskPath(t.id)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigateToTask(t.id);
-                    }}
-                    className="font-medium hover:text-[var(--accent)]"
-                  >
-                    {t.title}
-                  </Link>
-                  <div className="flex gap-1.5">
-                    <StatusPill>{taskTypeLabel[t.type] ?? t.type}</StatusPill>
-                    {t.needsAssignment || !t.assigneeId ? (
-                      <StatusPill tone="warn">Zuweisung offen</StatusPill>
-                    ) : (
-                      <StatusPill tone="ok">{getUser(t.assigneeId)?.name}</StatusPill>
-                    )}
-                  </div>
-                </li>
-              ))
-          )}
-        </ul>
       </Panel>
     </div>
   );
