@@ -22,6 +22,7 @@ export const moduleKindLabel: Record<ModuleKind, string> = {
   metall: "Metall",
   schaum: "Schaum",
   profil: "Profil",
+  elektrik: "Elektrik",
 };
 
 export const supplyScopeLabel: Record<SupplyScope, string> = {
@@ -98,6 +99,32 @@ export function partPathLabel(nodes: StructureNode[], part: Part): string {
   const bits = path.map((n) => n.label);
   if (part.side) bits.push(sideLabel[part.side]);
   return bits.join(" · ");
+}
+
+/**
+ * Kurzer Hinweis: was gehört unter dieses Modul – und was nicht.
+ * Steuert Erwartung (Profile nur am Bezug, nicht am Schaum …).
+ */
+export function moduleContextHint(moduleKind: ModuleKind | undefined): string {
+  switch (moduleKind) {
+    case "bezug":
+      return "Unter Bezug: Profile, Nähte, CAD. Bezügeentwickler und Zeichner.";
+    case "schaum":
+      return "Unter Schaum: Schaumteile und Freigaben – keine Profile.";
+    case "kunststoff":
+      return "Unter Kunststoff: Formteile und Anbindungen – keine Bezugs-Profile.";
+    case "struktur":
+    case "metall":
+      return "Unter Struktur/Metall: Träger, Schrauben, Befestigung – kein Schaum, keine Profile.";
+    case "schnittstelle":
+      return "Anbindung dokumentieren – oft Schnitt zu Kunststoff oder Struktur.";
+    case "elektrik":
+      return "Unter Elektrik: Kabel, Steuergeräte, Programmierung – eigene Aufträge.";
+    case "profil":
+      return "Profil hängt am Bezug – eigene Teilenummer und Stände.";
+    default:
+      return "Je Modul andere Unterteile und Aufträge – der Pfad oben zeigt, wo du bist.";
+  }
 }
 
 export function countPartsUnderNode(

@@ -8,20 +8,15 @@ import { taskTypeLabel } from "@/lib/labels";
 import { withBasePath } from "@/lib/nav";
 import { demoDxfAttachment } from "@/lib/dxf-demo";
 import { suggestedPlannedHours } from "@/lib/capacity";
-import { orderTypeDepartment } from "@/lib/orders";
+import { partKindLabel, orderTypeDepartment } from "@/lib/orders";
 import { pickDemoPartImage } from "@/lib/part-images";
+import { rulesForPart } from "@/lib/module-rules";
 import { useStore } from "@/lib/store";
 import type { Part, PartKind } from "@/lib/types";
 
-const kindLabel: Record<string, string> = {
-  profil: "Profil",
-  befestigung: "Befestigung",
-  sonstig: "Komponente",
-};
-
 /**
- * Am Bezug: Profil/Komponente anlegen oder bestehendes verknüpfen.
- * CAD wird nur eingestellt – Zeichner bekommt den Auftrag, du bleibst am Bezug.
+ * Am Modul: Unterteil anlegen oder bestehendes verknüpfen
+ * (Profile am Bezug, Schaumteile am Schaum, Kabel an Elektrik …).
  */
 export function AssemblyAddButton({
   parent,
@@ -32,39 +27,46 @@ export function AssemblyAddButton({
 }) {
   const { addPart, addRevision, addTask, state, currentUser, linkComponentToAssembly } =
     useStore();
+  const rules = rulesForPart(parent);
   const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"neu" | "link">("neu");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [withCad, setWithCad] = useState(true);
+  const defaultOpt = rules.childOptions[0];
+  const [withCad, setWithCad] = useState(defaultOpt?.defaultCad ?? false);
   const [linkId, setLinkId] = useState("");
   const [form, setForm] = useState({
     partNumber: "",
     name: "",
-    partKind: "profil" as PartKind,
+    partKind: (defaultOpt?.partKind ?? "sonstig") as PartKind,
     dueDate: "",
     imageUrl: "",
   });
 
+  const selectedOpt =
+    rules.childOptions.find((o) => o.partKind === form.partKind) ?? defaultOpt;
+
   const linkCandidates = useMemo(() => {
+    const kinds = new Set(rules.childOptions.map((o) => o.partKind));
     return state.parts.filter((p) => {
       if (p.projectId !== parent.projectId) return false;
-      if (p.partKind !== "profil" && p.partKind !== "befestigung") return false;
+      if (!p.partKind || !kinds.has(p.partKind)) return false;
       return !getUsedOnPartIds(p).includes(parent.id);
     });
-  }, [state.parts, parent]);
+  }, [state.parts, parent, rules.childOptions]);
 
   function close() {
     setOpen(false);
     setMode("neu");
     setLinkId("");
     setError(null);
-    setWithCad(true);
+    const opt = rules.childOptions[0];
+    setWithCad(opt?.defaultCad ?? false);
     setForm({
       partNumber: "",
       name: "",
-      partKind: "profil",
+      partKind: (opt?.partKind ?? "sonstig") as PartKind,
       dueDate: "",
       imageUrl: "",
     });
@@ -91,13 +93,18 @@ export function AssemblyAddButton({
       setError("Nummer und Beschreibung sind Pflicht.");
       return;
     }
-    const thing = kindLabel[form.partKind] ?? "Komponente";
+    if (!selectedOpt) {
+      setError("Für dieses Modul sind keine Unterteile vorgesehen.");
+      return;
+    }
+    const thing = selectedOpt.label;
+    const childModule = selectedOpt.childModuleKind;
     const imageUrl =
       form.imageUrl.trim() ||
       pickDemoPartImage({
         name: form.name.trim(),
         partKind: form.partKind,
-        moduleKind: "profil",
+        moduleKind: childModule,
       });
 
     const created = addPart({
@@ -106,7 +113,7 @@ export function AssemblyAddButton({
       projectId: parent.projectId,
       structureNodeId: parent.structureNodeId,
       side: "einzeln",
-      moduleKind: "profil",
+      moduleKind: childModule,
       partKind: form.partKind,
       parentPartId: parent.id,
       usedOnPartIds: [parent.id],
@@ -125,14 +132,14 @@ export function AssemblyAddButton({
       date: new Date().toISOString().slice(0, 10),
       createdByUserId: state.currentUserId,
       userType: "intern",
-      reason: `${thing} am Bezug ${parent.partNumber} angelegt`,
+      reason: `${thing} an ${parent.partNumber} angelegt`,
       status: "in_entwicklung",
-      drawings: [`${created.partNumber}.dxf`],
+      drawings: withCad ? [`${created.partNumber}.dxf`] : [],
       photos: [],
       documents: [],
       bomItems: [],
       files: [],
-      dxf: demoDxfAttachment(created),
+      dxf: withCad ? demoDxfAttachment(created) : undefined,
     });
 
     if (withCad) {
@@ -152,42 +159,49 @@ export function AssemblyAddButton({
           .slice(0, 10),
         plannedHours: suggestedPlannedHours("cad"),
         progress: 0,
-        description: `Erstzeichnung für ${thing} ${created.name} (${created.partNumber}) am Bezug ${parent.partNumber}. Eingestellt von ${currentUser?.name ?? "User"}.`,
+        description: `Erstzeichnung für ${thing} ${created.name} (${created.partNumber}) an ${parent.partNumber}. Eingestellt von ${currentUser?.name ?? "User"}.`,
       });
     }
 
     close();
     onAdded?.({ partId: created.id, cadOrdered: withCad });
-    // Am Bezug bleiben – CAD-Auftrag läuft still für den Zeichner
   }
+
+  if (rules.childOptions.length === 0) return null;
 
   const previewRaw =
     form.imageUrl ||
     pickDemoPartImage({
       name: form.name || form.partKind,
       partKind: form.partKind,
-      moduleKind: "profil",
+      moduleKind: selectedOpt?.childModuleKind ?? parent.moduleKind,
     });
   const preview = form.imageUrl.startsWith("data:")
     ? form.imageUrl
     : withBasePath(previewRaw);
 
+  const kindName = selectedOpt?.label ?? partKindLabel[form.partKind] ?? "Unterteil";
   const primaryLabel = withCad
-    ? `${kindLabel[form.partKind] ?? "Profil"} anlegen · CAD beauftragen`
-    : `${kindLabel[form.partKind] ?? "Profil"} anlegen`;
+    ? `${kindName} anlegen · CAD beauftragen`
+    : `${kindName} anlegen`;
+  const showCadOption = childModuleAllowsCad(selectedOpt?.childModuleKind);
 
   return (
     <>
       <Button variant="secondary" onClick={() => setOpen(true)}>
-        + Profil
+        + {rules.childrenTabLabel}
       </Button>
 
       {open ? (
-        <Modal title="Profil am Bezug" onClose={close} size="lg">
+        <Modal
+          title={`${rules.childrenTabLabel} · ${parent.partNumber}`}
+          onClose={close}
+          size="lg"
+        >
           <p className="mb-4 text-sm text-[var(--ink-muted)]">
-            Neues Profil anlegen oder ein bestehendes an{" "}
+            {rules.childrenHint} An{" "}
             <strong className="text-[var(--ink)]">{parent.partNumber}</strong>{" "}
-            hängen.
+            anhängen.
           </p>
 
           <div className="mb-4 flex gap-2">
@@ -227,24 +241,21 @@ export function AssemblyAddButton({
                 <div className="space-y-3">
                   <Field label="Art">
                     <div className="flex flex-wrap gap-1.5">
-                      {(
-                        [
-                          ["profil", "Profil"],
-                          ["befestigung", "Befestigung"],
-                          ["sonstig", "Komponente"],
-                        ] as const
-                      ).map(([id, lab]) => (
+                      {rules.childOptions.map((opt) => (
                         <button
-                          key={id}
+                          key={`${opt.partKind}-${opt.label}`}
                           type="button"
-                          onClick={() => setForm({ ...form, partKind: id })}
+                          onClick={() => {
+                            setForm({ ...form, partKind: opt.partKind });
+                            setWithCad(opt.defaultCad);
+                          }}
                           className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                            form.partKind === id
+                            form.partKind === opt.partKind
                               ? "bg-[var(--accent)] text-white"
                               : "border border-[var(--line)] text-[var(--ink-muted)]"
                           }`}
                         >
-                          {lab}
+                          {opt.label}
                         </button>
                       ))}
                     </div>
@@ -256,7 +267,7 @@ export function AssemblyAddButton({
                       onChange={(e) =>
                         setForm({ ...form, partNumber: e.target.value })
                       }
-                      placeholder="z. B. A990-ALC-L-P05"
+                      placeholder="z. B. A990-…"
                       autoFocus
                     />
                   </Field>
@@ -267,7 +278,7 @@ export function AssemblyAddButton({
                       onChange={(e) =>
                         setForm({ ...form, name: e.target.value })
                       }
-                      placeholder="z. B. OKR-Kurzschlussprofil Sitzseite"
+                      placeholder={`z. B. ${kindName}`}
                     />
                   </Field>
                   <Field label="Fertigstellung (optional)">
@@ -308,25 +319,26 @@ export function AssemblyAddButton({
                 </div>
               </div>
 
-              <div className="mt-4 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg)] px-3 py-3">
-                <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={withCad}
-                    onChange={(e) => setWithCad(e.target.checked)}
-                  />
-                  <span>
-                    <span className="font-medium text-[var(--ink)]">
-                      Zeichnung an CAD schicken
+              {showCadOption ? (
+                <div className="mt-4 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg)] px-3 py-3">
+                  <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={withCad}
+                      onChange={(e) => setWithCad(e.target.checked)}
+                    />
+                    <span>
+                      <span className="font-medium text-[var(--ink)]">
+                        Zeichnung an CAD schicken
+                      </span>
+                      <span className="mt-0.5 block text-xs text-[var(--ink-muted)]">
+                        Offener CAD-Auftrag für den Zeichner – du bleibst hier.
+                      </span>
                     </span>
-                    <span className="mt-0.5 block text-xs text-[var(--ink-muted)]">
-                      Erzeugt einen offenen CAD-Auftrag für den Zeichner. Du bleibst
-                      hier am Bezug – der Auftrag öffnet sich nicht.
-                    </span>
-                  </span>
-                </label>
-              </div>
+                  </label>
+                </div>
+              ) : null}
 
               <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
                 <Button onClick={createItem} disabled={busy}>
@@ -340,10 +352,9 @@ export function AssemblyAddButton({
           ) : (
             <>
               <p className="mb-3 text-sm text-[var(--ink-muted)]">
-                Bestehendes Profil an diesen Bezug hängen (geteilt – eine Änderung
-                wirkt überall).
+                Bestehendes Unterteil verknüpfen (geteilt – Änderung wirkt überall).
               </p>
-              <Field label="Profil">
+              <Field label={rules.childrenTabLabel}>
                 <select
                   className={inputClass}
                   value={linkId}
@@ -359,7 +370,7 @@ export function AssemblyAddButton({
               </Field>
               {linkCandidates.length === 0 ? (
                 <p className="mt-2 text-xs text-[var(--ink-subtle)]">
-                  Keine weiteren Profile in diesem Programm – unter „Neu“ anlegen.
+                  Keine passenden Teile – unter „Neu“ anlegen.
                 </p>
               ) : null}
               <div className="mt-4 flex gap-2">
@@ -386,6 +397,17 @@ export function AssemblyAddButton({
   );
 }
 
+function childModuleAllowsCad(kind: string | undefined): boolean {
+  return (
+    kind === "profil" ||
+    kind === "schaum" ||
+    kind === "kunststoff" ||
+    kind === "struktur" ||
+    kind === "metall" ||
+    kind === "schnittstelle"
+  );
+}
+
 /** Offener CAD-Auftrag zu diesem Bauteil? */
 export function hasOpenCadOrder(
   tasks: { partId?: string; type: string; status: string }[],
@@ -393,8 +415,7 @@ export function hasOpenCadOrder(
 ): boolean {
   const done = new Set(["abgeschlossen", "erledigt", "gestoppt"]);
   return tasks.some(
-    (t) =>
-      t.partId === partId && t.type === "cad" && !done.has(t.status),
+    (t) => t.partId === partId && t.type === "cad" && !done.has(t.status),
   );
 }
 
@@ -402,7 +423,5 @@ export function CadOrderedPill() {
   return <StatusPill tone="accent">CAD beim Zeichner</StatusPill>;
 }
 
-/** @deprecated Alias */
-export function AddProfileForm({ parent }: { parent: Part }) {
-  return <AssemblyAddButton parent={parent} />;
-}
+/** @deprecated Alias – nutze AssemblyAddButton */
+export const AddProfileForm = AssemblyAddButton;

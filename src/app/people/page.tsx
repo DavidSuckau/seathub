@@ -23,6 +23,10 @@ const skillNames: SkillName[] = [
   "CAD",
   "Musterbau",
   "Dokumentation",
+  "Schaum",
+  "Konstruktion",
+  "Elektronik",
+  "Programmierung",
 ];
 
 export default function PeoplePage() {

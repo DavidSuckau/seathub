@@ -9,7 +9,14 @@ export function getUsedOnPartIds(part: Part): string[] {
 }
 
 export function isComponentPart(part: Part): boolean {
-  if (part.partKind === "profil" || part.partKind === "befestigung") return true;
+  if (
+    part.partKind === "profil" ||
+    part.partKind === "befestigung" ||
+    part.partKind === "kabel" ||
+    part.partKind === "steuergeraet"
+  ) {
+    return true;
+  }
   if (part.usedOnPartIds?.length || part.parentPartId) return true;
   return false;
 }
@@ -19,6 +26,18 @@ export function isAssemblyPart(part: Part): boolean {
   // Profile hängen am Bezug – nicht an Schaum/Kunststoff/Struktur
   if (part.moduleKind && part.moduleKind !== "bezug") return false;
   return part.partKind === "hauptteil" || part.moduleKind === "bezug" || !part.partKind;
+}
+
+/** Elternteil mit eigenen Unterteilen (Bezug, Schaum, Metall, Elektrik …) */
+export function isParentWithChildren(part: Part): boolean {
+  if (isComponentPart(part) && part.moduleKind === "profil") return false;
+  if (part.moduleKind === "bezug" || isAssemblyPart(part)) return true;
+  return Boolean(
+    part.moduleKind &&
+      ["schaum", "kunststoff", "struktur", "metall", "elektrik", "schnittstelle"].includes(
+        part.moduleKind,
+      ),
+  );
 }
 
 /** Komponenten, die an diesem Bezug hängen (inkl. geteilter Profile) */

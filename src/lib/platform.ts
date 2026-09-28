@@ -79,6 +79,26 @@ export const checklistForTaskType: Partial<Record<TaskType, string[]>> = {
     "Abweichungen erfasst",
     "Freigabe empfohlen oder LOP",
   ],
+  schaumentwicklung: [
+    "Schaumkontur geprüft",
+    "Härte / Spezifikation dokumentiert",
+    "Werkzeug / Form geprüft",
+  ],
+  konstruktion: [
+    "Anforderungen gelesen",
+    "Schnittstellen geprüft",
+    "CAD / Spezifikation aktualisiert",
+  ],
+  verdrahtung: [
+    "Schaltplan geprüft",
+    "Leitungen / Stecker definiert",
+    "Verlegeweg dokumentiert",
+  ],
+  programmierung: [
+    "Lastenheft Software gelesen",
+    "Steuergerät / Version bestätigt",
+    "Flash / Testprotokoll erstellt",
+  ],
 };
 
 export function buildChecklist(labels: string[]): ChecklistItem[] {

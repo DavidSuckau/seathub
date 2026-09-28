@@ -13,12 +13,12 @@ import {
 } from "@/lib/capacity";
 import { CALENDAR_TODAY } from "@/lib/calendar";
 import {
-  createOrderTileTypes,
   orderPreferredSkills,
   orderTypeDepartment,
   orderTypeHint,
   orderTypeTileMeta,
 } from "@/lib/orders";
+import { orderTypesForPart } from "@/lib/module-rules";
 import { useStore } from "@/lib/store";
 import type { Part, Task, TaskType } from "@/lib/types";
 
@@ -49,7 +49,7 @@ export function CreateOrderWizard({
     projectId: fixedPart?.projectId ?? state.projects[0]?.id ?? "",
     assigneeId: "",
     priority: "hoch" as Priority,
-    dueDate: "2026-09-30",
+    dueDate: CALENDAR_TODAY,
     plannedHours: "",
     description: "",
   });
@@ -66,7 +66,10 @@ export function CreateOrderWizard({
       .sort((a, b) => a.partNumber.localeCompare(b.partNumber));
   }, [state.parts, form.projectId, fixedPart?.projectId]);
 
-  const types = createOrderTileTypes;
+  const types = useMemo(
+    () => orderTypesForPart(selectedPart ?? fixedPart),
+    [selectedPart, fixedPart],
+  );
   const departmentId = type ? orderTypeDepartment[type] : undefined;
   const dept = departmentId
     ? state.departments.find((d) => d.id === departmentId)
@@ -165,35 +168,9 @@ export function CreateOrderWizard({
 
   const body = (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-[var(--ink-muted)]">
-          Jeder Auftrag braucht eine Teilenummer. Typ wählen → Details ergänzen.
-        </p>
-        <div className="flex rounded-full bg-[var(--bg-elevated)] p-0.5">
-          <button
-            type="button"
-            onClick={() => setView("kacheln")}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-              view === "kacheln"
-                ? "bg-[var(--surface)] text-[var(--ink)] shadow-[var(--shadow)]"
-                : "text-[var(--ink-muted)]"
-            }`}
-          >
-            Kacheln
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("liste")}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-              view === "liste"
-                ? "bg-[var(--surface)] text-[var(--ink)] shadow-[var(--shadow)]"
-                : "text-[var(--ink-muted)]"
-            }`}
-          >
-            Liste
-          </button>
-        </div>
-      </div>
+      <p className="mb-4 text-sm text-[var(--ink-muted)]">
+        Typ wählen, Stunden und Termin – fertig. Mehr nur bei Bedarf.
+      </p>
 
       {!fixedPart ? (
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
@@ -242,28 +219,31 @@ export function CreateOrderWizard({
         </div>
       )}
 
-      {view === "kacheln" ? (
+      {type ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <StatusPill tone="accent">{taskTypeLabel[type]}</StatusPill>
+          <span className="text-sm text-[var(--ink-muted)]">→ {dept?.name}</span>
+          <button
+            type="button"
+            className="text-sm font-medium text-[var(--accent)] hover:underline"
+            onClick={() => setType(null)}
+          >
+            Typ ändern
+          </button>
+        </div>
+      ) : view === "kacheln" ? (
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {types.map((t) => {
             const meta = orderTypeTileMeta[t];
-            const selected = type === t;
             return (
               <button
                 key={t}
                 type="button"
                 onClick={() => selectType(t)}
-                className={`flex flex-col items-start gap-3 rounded-[var(--radius-lg)] border p-4 text-left transition ${
-                  selected
-                    ? "border-[var(--accent)] bg-[var(--accent-soft)] ring-1 ring-[var(--accent)]/30"
-                    : "border-[var(--line)] bg-[var(--surface)] hover:border-[var(--accent)]"
-                }`}
+                className="flex flex-col items-start gap-3 rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] p-4 text-left transition hover:border-[var(--accent)]"
               >
                 <span
-                  className={`flex h-14 w-14 items-center justify-center rounded-[var(--radius)] ${
-                    selected
-                      ? "bg-[var(--accent)] text-white"
-                      : "bg-[var(--bg-elevated)] text-[var(--accent)]"
-                  }`}
+                  className="flex h-14 w-14 items-center justify-center rounded-[var(--radius)] bg-[var(--bg-elevated)] text-[var(--accent)]"
                   aria-hidden
                 >
                   <OrderTypeIcon type={t} />
@@ -285,7 +265,7 @@ export function CreateOrderWizard({
           <Field label="Auftragstyp">
             <select
               className={inputClass}
-              value={type ?? ""}
+              value=""
               onChange={(e) => {
                 const t = e.target.value as TaskType;
                 if (t) selectType(t);
@@ -302,12 +282,20 @@ export function CreateOrderWizard({
         </div>
       )}
 
+      {types.length > 8 && !type ? (
+        <div className="mb-4">
+          <button
+            type="button"
+            className="text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]"
+            onClick={() => setView(view === "kacheln" ? "liste" : "kacheln")}
+          >
+            {view === "kacheln" ? "Als Liste anzeigen" : "Als Kacheln anzeigen"}
+          </button>
+        </div>
+      ) : null}
+
       {type ? (
         <div className="space-y-4 border-t border-[var(--line)] pt-4">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <StatusPill tone="accent">{taskTypeLabel[type]}</StatusPill>
-            <span className="text-[var(--ink-muted)]">→ {dept?.name}</span>
-          </div>
           {orderTypeHint[type] ? (
             <p className="text-xs text-[var(--ink-subtle)]">{orderTypeHint[type]}</p>
           ) : null}
@@ -319,27 +307,6 @@ export function CreateOrderWizard({
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Titel">
-              <input
-                className={inputClass}
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </Field>
-            <Field label="Priorität">
-              <select
-                className={inputClass}
-                value={form.priority}
-                onChange={(e) =>
-                  setForm({ ...form, priority: e.target.value as Priority })
-                }
-              >
-                <option value="niedrig">niedrig</option>
-                <option value="normal">normal</option>
-                <option value="hoch">hoch</option>
-                <option value="kritisch">kritisch</option>
-              </select>
-            </Field>
             <Field label="Fällig">
               <input
                 type="date"
@@ -361,43 +328,76 @@ export function CreateOrderWizard({
                 }}
                 placeholder={`z. B. ${suggestedPlannedHours(type)}`}
               />
-              <p className="mt-1 text-xs text-[var(--ink-subtle)]">
-                Woche = {WEEK_HOURS} h · zeigt Beschäftigung und Überschneidungen
-              </p>
             </Field>
-            <Field label="Sofort zuweisen (optional)">
-              <select
-                className={inputClass}
-                value={form.assigneeId}
-                onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}
-              >
-                <option value="">— später durch Abteilung —</option>
-                {candidates.map(({ user, skillScore, weekLoad }) => {
-                  const addHours = Number(String(form.plannedHours).replace(",", ".")) || 0;
-                  const after = weekLoad.hours + addHours;
-                  const overlap = after > WEEK_HOURS;
-                  return (
-                    <option key={user.id} value={user.id}>
-                      {user.name} · {formatPlannedHours(weekLoad.hours)}/
-                      {WEEK_HOURS}h
-                      {overlap ? " · Überschneidung" : ` · frei ${formatPlannedHours(weekLoad.freeHours)}`}
-                      {skillScore > 0 ? ` · Skill ${skillScore}` : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            </Field>
-            <div className="sm:col-span-2">
-              <Field label="Beschreibung">
-                <textarea
+          </div>
+
+          <details className="rounded-[var(--radius)] border border-[var(--line)] px-3 py-2">
+            <summary className="cursor-pointer text-sm font-medium text-[var(--ink-muted)]">
+              Weitere Angaben
+            </summary>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <Field label="Titel">
+                <input
                   className={inputClass}
-                  rows={2}
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
                 />
               </Field>
+              <Field label="Priorität">
+                <select
+                  className={inputClass}
+                  value={form.priority}
+                  onChange={(e) =>
+                    setForm({ ...form, priority: e.target.value as Priority })
+                  }
+                >
+                  <option value="niedrig">niedrig</option>
+                  <option value="normal">normal</option>
+                  <option value="hoch">hoch</option>
+                  <option value="kritisch">kritisch</option>
+                </select>
+              </Field>
+              <Field label="Sofort zuweisen (optional)">
+                <select
+                  className={inputClass}
+                  value={form.assigneeId}
+                  onChange={(e) =>
+                    setForm({ ...form, assigneeId: e.target.value })
+                  }
+                >
+                  <option value="">— später durch Abteilung —</option>
+                  {candidates.map(({ user, skillScore, weekLoad }) => {
+                    const addHours =
+                      Number(String(form.plannedHours).replace(",", ".")) || 0;
+                    const after = weekLoad.hours + addHours;
+                    const overlap = after > WEEK_HOURS;
+                    return (
+                      <option key={user.id} value={user.id}>
+                        {user.name} · {formatPlannedHours(weekLoad.hours)}/
+                        {WEEK_HOURS}h
+                        {overlap
+                          ? " · Überschneidung"
+                          : ` · frei ${formatPlannedHours(weekLoad.freeHours)}`}
+                        {skillScore > 0 ? ` · Skill ${skillScore}` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Beschreibung">
+                  <textarea
+                    className={inputClass}
+                    rows={2}
+                    value={form.description}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
+                  />
+                </Field>
+              </div>
             </div>
-          </div>
+          </details>
 
           {!selectedPart ? (
             <p className="text-xs text-[var(--warn)]">
@@ -421,7 +421,7 @@ export function CreateOrderWizard({
         </div>
       ) : (
         <p className="text-sm text-[var(--ink-subtle)]">
-          Zuerst einen Auftragstyp {view === "kacheln" ? "als Kachel" : "in der Liste"} wählen.
+          Zuerst einen Auftragstyp wählen.
         </p>
       )}
     </>

@@ -187,6 +187,10 @@ const ICONS: Partial<Record<TaskType, () => React.ReactNode>> = {
   dokumentation: IconDoku,
   aenderung: IconAenderung,
   materialbestellung: IconMaterial,
+  schaumentwicklung: IconBezug,
+  konstruktion: IconCad,
+  verdrahtung: IconMaterial,
+  programmierung: IconDoku,
 };
 
 export function OrderTypeIcon({ type }: { type: TaskType | string }) {

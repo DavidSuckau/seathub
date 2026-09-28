@@ -28,6 +28,10 @@ export const taskTypeLabel: Record<string, string> = {
   extern: "Externer Auftrag",
   pruefung: "Prüfauftrag",
   aenderung: "Änderungsauftrag",
+  schaumentwicklung: "Schaumentwicklung",
+  konstruktion: "Konstruktion",
+  verdrahtung: "Verdrahtung",
+  programmierung: "Programmierung",
 };
 
 export const lopSourceLabel: Record<string, string> = {

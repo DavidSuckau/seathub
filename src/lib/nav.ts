@@ -32,10 +32,11 @@ export function taskPath(taskId: string): string {
 /** Bauteildetail – stabil für neu angelegte IDs auf GitHub Pages. */
 export function partPath(
   partId: string,
-  opts?: { stand?: string },
+  opts?: { stand?: string; tab?: string },
 ): string {
   const q = new URLSearchParams({ id: partId });
   if (opts?.stand) q.set("stand", opts.stand);
+  if (opts?.tab) q.set("tab", opts.tab);
   return `/parts/view/?${q.toString()}`;
 }
 
@@ -61,7 +62,7 @@ export function navigateToTask(taskId: string): void {
 
 export function navigateToPart(
   partId: string,
-  opts?: { stand?: string },
+  opts?: { stand?: string; tab?: string },
 ): void {
   navigate(partPath(partId, opts));
 }

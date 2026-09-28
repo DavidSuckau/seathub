@@ -104,27 +104,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         eyebrow={`${project.customer} · Programm ${project.code}`}
         title={project.name}
         description={project.description}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <AmpelBadge ampel={project.ampel} />
-            <Button
-              variant="danger"
-              onClick={() => {
-                if (
-                  !window.confirm(
-                    `Programm ${project.code} komplett löschen? Struktur, Bauteile, Aufträge und LOPs werden entfernt.`,
-                  )
-                ) {
-                  return;
-                }
-                deleteProject(project.id);
-                navigate("/projects/");
-              }}
-            >
-              Programm löschen
-            </Button>
-          </div>
-        }
+        actions={<AmpelBadge ampel={project.ampel} />}
       />
 
       {project.milestoneRisk ? (
@@ -135,29 +115,15 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
 
       <div className="mb-5 flex flex-wrap gap-2">
         <StatusPill tone="accent">{projectStatusLabel[project.status]}</StatusPill>
-        <StatusPill tone="ok">{supplyScopeLabel[project.supplyScope]}</StatusPill>
         {project.sopDate ? (
           <StatusPill tone="accent">SOP {formatDate(project.sopDate)}</StatusPill>
         ) : (
           <StatusPill tone="warn">SOP fehlt</StatusPill>
         )}
-        {project.includesHeadrest != null ? (
-          <StatusPill>
-            {project.includesHeadrest ? "mit Kopfstütze" : "ohne Kopfstütze"}
-          </StatusPill>
-        ) : null}
-        <StatusPill>{parts.length} Bauteile</StatusPill>
         <StatusPill tone="ok">
           Freigabe {progress.percent} % ({progress.released}/{progress.total})
         </StatusPill>
-        {equipmentLabels(project.equipment).map((label) => (
-          <StatusPill key={label}>{label}</StatusPill>
-        ))}
       </div>
-
-      <p className="mb-5 max-w-3xl text-sm text-[var(--ink-muted)]">
-        {supplyScopeHint[project.supplyScope]}
-      </p>
 
       <Panel title="Gesamtfortschritt Freigabe" className="mb-6">
         <div className="w-full">
@@ -168,28 +134,25 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           />
         </div>
         <p className="mt-3 text-sm text-[var(--ink-muted)]">
-          Auch bei laufender Weiterentwicklung bleibt ein Bauteil mit Freigabe im Fortschritt.
-          {progress.withActiveLoop > 0
-            ? ` Aktuell ${progress.withActiveLoop} Bauteil(e) nach Freigabe in neuer Schleife.`
-            : ""}
           {progress.withoutRelease > 0
-            ? ` ${progress.withoutRelease} noch ohne Freigabe.`
-            : ""}
+            ? `${progress.withoutRelease} Bauteil(e) noch ohne Freigabe.`
+            : "Alle sichtbaren Bauteile haben eine Freigabe."}
         </p>
       </Panel>
 
-      <Panel title="Sitzzeichnung" className="mb-6">
-        <p className="mb-3 text-sm text-[var(--ink-muted)]">
-          Eigene Zeichnung: Module werden sichtbar, sobald Bauteile da sind. Neue Profile
-          erscheinen automatisch in der Zeichnung.
-        </p>
-        <SeatExplodedView
-          parts={projectParts}
-          selected={artFilter}
-          onSelect={setArtFilter}
-          counts={moduleCounts}
-        />
-      </Panel>
+      <details className="mb-6 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">
+          Sitzzeichnung & Module
+        </summary>
+        <div className="mt-3">
+          <SeatExplodedView
+            parts={projectParts}
+            selected={artFilter}
+            onSelect={setArtFilter}
+            counts={moduleCounts}
+          />
+        </div>
+      </details>
 
       <ArtFilterLayout
         filter={
@@ -389,6 +352,34 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         </Panel>
       </div>
       </ArtFilterLayout>
+
+      <details className="mt-8 rounded-[var(--radius)] border border-[var(--line)] px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium text-[var(--ink-muted)]">
+          Programm verwalten
+        </summary>
+        <p className="mt-2 text-sm text-[var(--ink-muted)]">
+          {supplyScopeHint[project.supplyScope]} ·{" "}
+          {supplyScopeLabel[project.supplyScope]}
+        </p>
+        <div className="mt-3">
+          <Button
+            variant="danger"
+            onClick={() => {
+              if (
+                !window.confirm(
+                  `Programm ${project.code} komplett löschen? Struktur, Bauteile, Aufträge und LOPs werden entfernt.`,
+                )
+              ) {
+                return;
+              }
+              deleteProject(project.id);
+              navigate("/projects/");
+            }}
+          >
+            Programm löschen
+          </Button>
+        </div>
+      </details>
     </div>
   );
 }

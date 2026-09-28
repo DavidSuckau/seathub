@@ -16,7 +16,7 @@ export function CreatePartOrderForm({
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Auftrag zum Bauteil</Button>
+      <Button onClick={() => setOpen(true)}>Auftrag anlegen</Button>
       {open ? (
         <Modal
           title={`Auftrag · ${part.partNumber}`}

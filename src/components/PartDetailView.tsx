@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { AssemblyAddButton, CadOrderedPill, hasOpenCadOrder } from "@/components/AssemblyAddButton";
 import { CreatePartOrderForm } from "@/components/CreatePartOrderForm";
 import { DevelopmentLoopForm } from "@/components/DevelopmentLoopForm";
+import { NextAction } from "@/components/NextAction";
 import {
   ProfileUsagePanel,
   SharedImpactBanner,
@@ -29,6 +30,7 @@ import {
   isAssemblyPart,
   isSharedComponent,
 } from "@/lib/components";
+import { partAllowsChildren, rulesForPart } from "@/lib/module-rules";
 import { CALENDAR_TODAY } from "@/lib/calendar";
 import { demoDxfAttachment } from "@/lib/dxf-demo";
 import { formatDate, formatDateTime, taskStatusLabel, taskTypeLabel } from "@/lib/labels";
@@ -42,11 +44,23 @@ import {
 import { useStore } from "@/lib/store";
 import {
   developmentRoleLabel,
+  getNodePath,
+  moduleContextHint,
   moduleKindLabel,
-  partPathLabel,
   sideLabel,
 } from "@/lib/structure";
 import { isDoneStatus } from "@/components/CompleteTaskForm";
+import { openOrdersBlockingPart } from "@/lib/part-orders";
+
+type PartTab = "uebersicht" | "auftraege" | "unterteile" | "staende" | "lops";
+
+const BASE_TABS: { id: PartTab; label: string }[] = [
+  { id: "uebersicht", label: "Übersicht" },
+  { id: "auftraege", label: "Aufträge" },
+  { id: "unterteile", label: "Unterteile" },
+  { id: "staende", label: "Stände" },
+  { id: "lops", label: "LOPs" },
+];
 
 function statusTone(
   status: string,
@@ -70,6 +84,7 @@ export function PartDetailView({ partId }: { partId: string }) {
 
   const revisions = part ? getPartRevisions(state.revisions, part.id) : [];
   const standParam = searchParams.get("stand");
+  const tabParam = searchParams.get("tab") as PartTab | null;
   const selectedStand =
     standParam && revisions.some((r) => r.revision === standParam)
       ? standParam
@@ -99,7 +114,6 @@ export function PartDetailView({ partId }: { partId: string }) {
   }
 
   const project = getProject(part.projectId);
-  const pathLabel = partPathLabel(state.structureNodes ?? [], part);
   const engineer = part.engineerUserId ? getUser(part.engineerUserId) : undefined;
   const coverDev = part.coverDeveloperUserId ? getUser(part.coverDeveloperUserId) : undefined;
   const mirrorPair = part.mirrorPairPartId
@@ -114,7 +128,9 @@ export function PartDetailView({ partId }: { partId: string }) {
   const parentAssemblies = usedOnIds
     .map((id) => state.parts.find((p) => p.id === id))
     .filter(Boolean);
-  const isAssembly = isAssemblyPart(part);
+  const allowsChildren = partAllowsChildren(part);
+  const isBezugAssembly = isAssemblyPart(part);
+  const moduleRules = rulesForPart(part);
   const shared = isSharedComponent(part);
   const partTasks = state.tasks
     .filter((t) => t.partId === part.id)
@@ -126,6 +142,45 @@ export function PartDetailView({ partId }: { partId: string }) {
       return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
     });
   const openCount = partTasks.filter((t) => !isDoneStatus(t.status)).length;
+  const blockingOrders = openOrdersBlockingPart(state.parts, state.tasks, part.id);
+  const canRelease = blockingOrders.length === 0;
+  const releasePartId = part.id;
+  const releaseRevisionId = selected?.id;
+
+  const availableTabs = BASE_TABS.filter((t) => {
+    if (t.id === "unterteile") return allowsChildren;
+    return true;
+  }).map((t) =>
+    t.id === "unterteile"
+      ? { ...t, label: moduleRules.childrenTabLabel }
+      : t,
+  );
+  const activeTab: PartTab =
+    tabParam && availableTabs.some((t) => t.id === tabParam)
+      ? tabParam
+      : "auftraege";
+
+  function tryRelease() {
+    if (!releaseRevisionId) return;
+    const result = relaunchStand(releasePartId, releaseRevisionId);
+    if (!result.ok) {
+      window.alert(result.reason);
+    }
+  }
+
+  function tabHref(tab: PartTab) {
+    return partPath(releasePartId, {
+      stand: selectedStand,
+      tab,
+    });
+  }
+
+  function standHref(stand: string) {
+    return partPath(releasePartId, { stand, tab: "staende" });
+  }
+
+  const pathNodes = getNodePath(state.structureNodes ?? [], part.structureNodeId);
+  const contextHint = moduleContextHint(part.moduleKind);
 
   return (
     <div>
@@ -134,26 +189,77 @@ export function PartDetailView({ partId }: { partId: string }) {
         title={part.name}
         description={`${project?.customer ?? ""} · Programm ${project?.code ?? "—"}`}
         actions={
-          <div className="flex flex-wrap gap-2">
-            {part.isVirtual ? <StatusPill tone="watch">Virtueller Bezug</StatusPill> : null}
-            <Button variant="secondary" onClick={() => setShowLoop((v) => !v)}>
-              Neue Entwicklungsschleife
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {part.isVirtual ? <StatusPill tone="watch">Virtuell</StatusPill> : null}
             {selected &&
             (selected.status === "in_entwicklung" || selected.status === "zur_pruefung") ? (
-              <Button onClick={() => relaunchStand(part.id, selected.id)}>
-                Freigabe / Relaunch Stand {selected.revision}
+              <Button disabled={!canRelease} onClick={tryRelease}>
+                Freigabe Stand {selected.revision}
               </Button>
-            ) : null}
-            <Button
-              variant="danger"
-              onClick={() => setConfirmDelete(true)}
-            >
-              Bauteil löschen
-            </Button>
+            ) : (
+              <CreatePartOrderForm part={part} />
+            )}
+            <details className="relative">
+              <summary className="cursor-pointer list-none rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--ink-muted)] hover:text-[var(--ink)]">
+                Mehr
+              </summary>
+              <div className="absolute right-0 z-20 mt-1 w-56 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] p-2 shadow-[var(--shadow-md)]">
+                <button
+                  type="button"
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--bg-elevated)]"
+                  onClick={() => setShowLoop(true)}
+                >
+                  Neue Entwicklungsschleife
+                </button>
+                {selected &&
+                (selected.status === "in_entwicklung" ||
+                  selected.status === "zur_pruefung") ? (
+                  <div className="px-3 py-2">
+                    <CreatePartOrderForm part={part} />
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--danger)] hover:bg-[var(--danger-soft)]"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Bauteil löschen
+                </button>
+              </div>
+            </details>
           </div>
         }
       />
+
+      <nav
+        aria-label="Standort im Programm"
+        className="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-[var(--ink-muted)]"
+      >
+        <Link
+          href={projectPath(part.projectId)}
+          className="font-medium text-[var(--accent)] hover:underline"
+        >
+          {project?.code ?? "Programm"}
+        </Link>
+        {pathNodes.map((n) => (
+          <span key={n.id} className="inline-flex items-center gap-1.5">
+            <span className="text-[var(--ink-subtle)]" aria-hidden>
+              /
+            </span>
+            <span>{n.label}</span>
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="text-[var(--ink-subtle)]" aria-hidden>
+            /
+          </span>
+          <span className="font-semibold text-[var(--ink)]">{part.partNumber}</span>
+          {part.side ? (
+            <span className="text-[var(--ink-subtle)]">({sideLabel[part.side]})</span>
+          ) : null}
+        </span>
+      </nav>
+      <p className="mb-4 text-sm text-[var(--ink-muted)]">{contextHint}</p>
 
       {confirmDelete ? (
         <div className="mb-5 rounded-[var(--radius)] border border-[var(--danger)]/35 bg-[var(--danger-soft)] px-4 py-4">
@@ -183,82 +289,194 @@ export function PartDetailView({ partId }: { partId: string }) {
       ) : null}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <StatusPill tone="accent">Aktuell Stand {part.currentRevision}</StatusPill>
+        <StatusPill tone="accent">Stand {part.currentRevision}</StatusPill>
         {part.releasedRevision ? (
-          <StatusPill tone="ok">Freigabe Stand {part.releasedRevision}</StatusPill>
+          <StatusPill tone="ok">Freigabe {part.releasedRevision}</StatusPill>
         ) : null}
-        {part.partKind ? (
-          <StatusPill tone="accent">{partKindLabel[part.partKind]}</StatusPill>
+        {part.moduleKind ? (
+          <StatusPill>{moduleKindLabel[part.moduleKind]}</StatusPill>
         ) : null}
-        {part.moduleKind ? <StatusPill>{moduleKindLabel[part.moduleKind]}</StatusPill> : null}
-        {part.side ? <StatusPill>{sideLabel[part.side]}</StatusPill> : null}
-        <StatusPill tone={role === "spiegel" ? "watch" : "neutral"}>
-          {developmentRoleLabel[role]}
-        </StatusPill>
-        <Link
-          href={projectPath(part.projectId)}
-          className="text-sm text-[var(--accent)] hover:underline"
-        >
-          Zum Programm
-        </Link>
       </div>
 
-      <Panel
-        title={
-          partTasks.length === 0
-            ? "Aufträge"
-            : `Aufträge · ${openCount} offen${partTasks.length > openCount ? ` · ${partTasks.length - openCount} erledigt` : ""}`
-        }
-        className="mb-6"
-        action={<CreatePartOrderForm part={part} />}
-      >
-        {partTasks.length === 0 ? (
-          <p className="text-sm text-[var(--ink-subtle)]">
-            Noch keine Aufträge zu diesem Bauteil.
-          </p>
-        ) : (
-          <ul className="divide-y divide-[var(--line)]">
-            {partTasks.map((t) => (
-              <li
-                key={t.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <Link
-                    href={taskPath(t.id)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigateToTask(t.id);
-                    }}
-                    className="font-medium hover:text-[var(--accent)]"
-                  >
-                    {t.title}
-                  </Link>
-                  <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
-                    {taskTypeLabel[t.type] ?? t.type}
-                    {t.revisionStand ? ` · Stand ${t.revisionStand}` : ""}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <StatusPill
-                    tone={statusTone(t.status, t.needsAssignment, t.assigneeId)}
-                  >
-                    {t.needsAssignment || !t.assigneeId
-                      ? "Zuweisung offen"
-                      : (taskStatusLabel[t.status] ?? t.status)}
-                  </StatusPill>
-                  {t.assigneeId && !t.needsAssignment ? (
-                    <StatusPill tone="neutral">
-                      {getUser(t.assigneeId)?.name ?? "—"}
-                    </StatusPill>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
+      {!canRelease &&
+      selected &&
+      (selected.status === "in_entwicklung" || selected.status === "zur_pruefung") ? (
+        <div className="mb-5 rounded-[var(--radius)] border border-[var(--warn)]/35 bg-[var(--warn-soft)] px-4 py-3 text-sm text-[var(--warn)]">
+          Freigabe blockiert – {blockingOrders.length === 1
+            ? "noch 1 offener Auftrag"
+            : `noch ${blockingOrders.length} offene Aufträge`}{" "}
+          (inkl. Unteraufträge an Profilen). Erst erledigen, dann freigeben.
+        </div>
+      ) : null}
 
+      <nav
+        className="mb-6 flex gap-0 overflow-x-auto border-b border-[var(--line)]"
+        aria-label="Bauteil-Bereiche"
+      >
+        {availableTabs.map((t) => {
+          const active = activeTab === t.id;
+          const badge =
+            t.id === "auftraege" && openCount > 0
+              ? openCount
+              : t.id === "unterteile" && childParts.length > 0
+                ? childParts.length
+                : t.id === "staende" && revisions.length > 0
+                  ? revisions.length
+                  : null;
+          return (
+            <Link
+              key={t.id}
+              href={tabHref(t.id)}
+              className={`relative shrink-0 px-4 py-2.5 text-sm font-medium transition ${
+                active
+                  ? "text-[var(--accent)]"
+                  : "text-[var(--ink-muted)] hover:text-[var(--ink)]"
+              }`}
+            >
+              {t.label}
+              {badge != null ? (
+                <span
+                  className={`ml-1.5 inline-flex min-w-[1.25rem] justify-center rounded-full px-1.5 text-[11px] tabular-nums ${
+                    active
+                      ? "bg-[var(--accent)] text-white"
+                      : "bg-[var(--bg-elevated)] text-[var(--ink-subtle)]"
+                  }`}
+                >
+                  {badge}
+                </span>
+              ) : null}
+              {active ? (
+                <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[var(--accent)]" />
+              ) : null}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {showLoop ? (
+        <div className="mb-6">
+          <DevelopmentLoopForm
+            part={part}
+            onDone={(rev) => {
+              setShowLoop(false);
+              navigateToPart(part.id, { stand: rev, tab: "staende" });
+            }}
+            onCancel={() => setShowLoop(false)}
+          />
+        </div>
+      ) : null}
+
+      {activeTab === "auftraege" ? (
+        <div className="mb-6 space-y-5">
+          {(() => {
+            const next = partTasks.find((t) => !isDoneStatus(t.status));
+            if (!next) return null;
+            return (
+              <NextAction
+                title="Als Nächstes"
+                description={next.title}
+                primaryLabel="Auftrag öffnen"
+                primaryHref={taskPath(next.id)}
+                secondary={
+                  <span className="text-sm text-[var(--ink-muted)]">
+                    {taskStatusLabel[next.status] ?? next.status}
+                    {next.assigneeId
+                      ? ` · ${getUser(next.assigneeId)?.name ?? ""}`
+                      : " · Zuweisung offen"}
+                  </span>
+                }
+              />
+            );
+          })()}
+          <Panel
+            title={
+              partTasks.length === 0
+                ? "Aufträge"
+                : `${openCount} offen${partTasks.length > openCount ? ` · ${partTasks.length - openCount} erledigt` : ""}`
+            }
+            action={<CreatePartOrderForm part={part} />}
+          >
+            {partTasks.length === 0 ? (
+              <p className="text-sm text-[var(--ink-subtle)]">
+                Noch keine Aufträge zu diesem Bauteil.
+              </p>
+            ) : (
+              <>
+                <ul className="divide-y divide-[var(--line)]">
+                  {partTasks
+                    .filter((t) => !isDoneStatus(t.status))
+                    .map((t) => (
+                      <li
+                        key={t.id}
+                        className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={taskPath(t.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigateToTask(t.id);
+                            }}
+                            className="font-medium hover:text-[var(--accent)]"
+                          >
+                            {t.title}
+                          </Link>
+                          <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                            {taskTypeLabel[t.type] ?? t.type}
+                            {t.revisionStand ? ` · Stand ${t.revisionStand}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <StatusPill
+                            tone={statusTone(
+                              t.status,
+                              t.needsAssignment,
+                              t.assigneeId,
+                            )}
+                          >
+                            {t.needsAssignment || !t.assigneeId
+                              ? "Zuweisung offen"
+                              : (taskStatusLabel[t.status] ?? t.status)}
+                          </StatusPill>
+                          {t.assigneeId && !t.needsAssignment ? (
+                            <StatusPill tone="neutral">
+                              {getUser(t.assigneeId)?.name ?? "—"}
+                            </StatusPill>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+                {partTasks.some((t) => isDoneStatus(t.status)) ? (
+                  <details className="mt-3 border-t border-[var(--line)] pt-3">
+                    <summary className="cursor-pointer text-sm text-[var(--ink-muted)]">
+                      Erledigte Aufträge (
+                      {partTasks.filter((t) => isDoneStatus(t.status)).length})
+                    </summary>
+                    <ul className="mt-2 divide-y divide-[var(--line)]">
+                      {partTasks
+                        .filter((t) => isDoneStatus(t.status))
+                        .map((t) => (
+                          <li key={t.id} className="py-2 text-sm">
+                            <Link
+                              href={taskPath(t.id)}
+                              className="text-[var(--ink-muted)] hover:text-[var(--accent)]"
+                            >
+                              {t.title}
+                            </Link>
+                          </li>
+                        ))}
+                    </ul>
+                  </details>
+                ) : null}
+              </>
+            )}
+          </Panel>
+        </div>
+      ) : null}
+
+      {activeTab === "uebersicht" ? (
+      <>
       <PartHauptbild
         part={part}
         onChange={(imageUrl) => updatePart(part.id, { imageUrl })}
@@ -303,7 +521,6 @@ export function PartDetailView({ partId }: { partId: string }) {
         </>
       )}
 
-      <p className="mb-2 text-sm text-[var(--ink-muted)]">{pathLabel}</p>
       <p className="mb-3 text-sm text-[var(--ink-muted)]">
         Ing. {engineer?.name ?? "—"} · Bezug {coverDev?.name ?? "—"}
       </p>
@@ -338,18 +555,48 @@ export function PartDetailView({ partId }: { partId: string }) {
         )}
       </div>
 
-      {isAssembly ? (
+      {(part.partKind === "profil" || part.partKind === "befestigung") &&
+      parentAssemblies.length > 0 ? (
+        <div className="mb-5 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg)] px-4 py-3 text-sm text-[var(--ink-muted)]">
+          Für dieses Profil typischerweise{" "}
+          <strong className="text-[var(--ink)]">CAD-Zeichnung</strong> beauftragen. Stände des
+          Profils sind unabhängig vom Bezug – eine Bezug-Änderung erzwingt kein neues Profil.
+        </div>
+      ) : null}
+
+      {role === "spiegel" && mirrorMaster ? (
+        <div className="mb-4 rounded-[var(--radius)] border border-[var(--watch)]/30 bg-[var(--watch-soft)] px-4 py-3 text-sm text-[var(--watch)]">
+          Spiegelteil – Entwicklung über{" "}
+          <Link href={partPath(mirrorMaster.id)} className="font-semibold underline">
+            {mirrorMaster.partNumber}
+          </Link>
+          . Stände hier für Doku und Kundenzeichnung.
+        </div>
+      ) : null}
+
+      {role === "entwickelt" && mirrorPair ? (
+        <div className="mb-4 rounded-[var(--radius)] border border-[var(--ok)]/25 bg-[var(--ok-soft)] px-4 py-3 text-sm text-[var(--ok)]">
+          Führendes Teil – Spiegel{" "}
+          <Link href={partPath(mirrorPair.id)} className="font-semibold underline">
+            {mirrorPair.partNumber}
+          </Link>
+        </div>
+      ) : null}
+      </>
+      ) : null}
+
+      {activeTab === "unterteile" && allowsChildren ? (
         <div className="mb-6">
           <Panel
-            title="Profile & Komponenten"
+            title={moduleRules.childrenTabLabel}
             action={
               <AssemblyAddButton
                 parent={part}
                 onAdded={({ cadOrdered }) => {
                   setAddHint(
                     cadOrdered
-                      ? "Profil angelegt. CAD-Auftrag liegt beim Zeichner – du bleibst am Bezug."
-                      : "Profil angelegt und am Bezug verknüpft.",
+                      ? "Unterteil angelegt. CAD-Auftrag liegt beim Zeichner – du bleibst hier."
+                      : "Unterteil angelegt und verknüpft.",
                   );
                   window.setTimeout(() => setAddHint(null), 6000);
                 }}
@@ -357,8 +604,7 @@ export function PartDetailView({ partId }: { partId: string }) {
             }
           >
             <p className="mb-3 text-sm text-[var(--ink-muted)]">
-              Profile haben eigene Teilenummern. CAD-Aufträge gehen an den Zeichner – ohne dass
-              du den Auftrag öffnen musst.
+              {moduleRules.childrenHint}
             </p>
             {addHint ? (
               <p className="mb-3 rounded-lg border border-[var(--ok)]/30 bg-[var(--ok-soft)] px-3 py-2 text-sm text-[var(--ok)]">
@@ -367,7 +613,7 @@ export function PartDetailView({ partId }: { partId: string }) {
             ) : null}
             {childParts.length === 0 ? (
               <p className="text-sm text-[var(--ink-subtle)]">
-                Noch keine Profile – mit „+ Profil“ anlegen.
+                Noch keine Einträge – über „+ {moduleRules.childrenTabLabel}“ anlegen.
               </p>
             ) : (
               <ul className="divide-y divide-[var(--line)]">
@@ -423,47 +669,12 @@ export function PartDetailView({ partId }: { partId: string }) {
         </div>
       ) : null}
 
-      {(part.partKind === "profil" || part.partKind === "befestigung") &&
-      parentAssemblies.length > 0 ? (
-        <div className="mb-5 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg)] px-4 py-3 text-sm text-[var(--ink-muted)]">
-          Für dieses Profil typischerweise{" "}
-          <strong className="text-[var(--ink)]">CAD-Zeichnung</strong> beauftragen. Stände des
-          Profils sind unabhängig vom Bezug – eine Bezug-Änderung erzwingt kein neues Profil.
-        </div>
+      {activeTab === "lops" ? (
+        <PartLopPanel part={part} className="mb-6" />
       ) : null}
 
-      <PartLopPanel part={part} className="mb-6" />
-
-      {role === "spiegel" && mirrorMaster ? (
-        <div className="mb-4 rounded-[var(--radius)] border border-[var(--watch)]/30 bg-[var(--watch-soft)] px-4 py-3 text-sm text-[var(--watch)]">
-          Spiegelteil – Entwicklung über{" "}
-          <Link href={partPath(mirrorMaster.id)} className="font-semibold underline">
-            {mirrorMaster.partNumber}
-          </Link>
-          . Stände hier für Doku und Kundenzeichnung.
-        </div>
-      ) : null}
-
-      {role === "entwickelt" && mirrorPair ? (
-        <div className="mb-4 rounded-[var(--radius)] border border-[var(--ok)]/25 bg-[var(--ok-soft)] px-4 py-3 text-sm text-[var(--ok)]">
-          Führendes Teil – Spiegel{" "}
-          <Link href={partPath(mirrorPair.id)} className="font-semibold underline">
-            {mirrorPair.partNumber}
-          </Link>
-        </div>
-      ) : null}
-
-      {showLoop ? (
-        <DevelopmentLoopForm
-          part={part}
-          onDone={(rev) => {
-            setShowLoop(false);
-            navigateToPart(part.id, { stand: rev });
-          }}
-          onCancel={() => setShowLoop(false)}
-        />
-      ) : null}
-
+      {activeTab === "staende" ? (
+      <>
       <Panel title={`Stände von ${part.partNumber}`} className="mb-6">
         <p className="mb-3 text-xs text-[var(--ink-subtle)]">
           Jeder Stand ist fest – Zeichnungen, Fotos und Stückliste gehören zum jeweiligen Stand.
@@ -474,7 +685,7 @@ export function PartDetailView({ partId }: { partId: string }) {
             return (
               <Link
                 key={r.id}
-                href={partPath(part.id, { stand: r.revision })}
+                href={standHref(r.revision)}
                 className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
                   active
                     ? "border-[var(--accent)] bg-[var(--accent)] text-white"
@@ -521,7 +732,7 @@ export function PartDetailView({ partId }: { partId: string }) {
                     <dt className="text-[var(--ink-subtle)]">Basiert auf</dt>
                     <dd>
                       <Link
-                        href={partPath(part.id, { stand: selected.basedOnRevision })}
+                        href={standHref(selected.basedOnRevision)}
                         className="text-[var(--accent)] hover:underline"
                       >
                         Stand {selected.basedOnRevision}
@@ -597,7 +808,7 @@ export function PartDetailView({ partId }: { partId: string }) {
                       return (
                         <Link
                           key={r.id}
-                          href={partPath(part.id, { stand: r.revision })}
+                          href={standHref(r.revision)}
                           className="flex min-w-0 flex-1 flex-col items-center gap-1"
                           title={
                             r.weightGrams != null
@@ -636,7 +847,7 @@ export function PartDetailView({ partId }: { partId: string }) {
                           className="flex flex-wrap items-center justify-between gap-2 py-2"
                         >
                           <Link
-                            href={partPath(part.id, { stand: r.revision })}
+                            href={standHref(r.revision)}
                             className="font-medium hover:text-[var(--accent)]"
                           >
                             Stand {r.revision}
@@ -665,8 +876,8 @@ export function PartDetailView({ partId }: { partId: string }) {
               )}
             </Panel>
 
-            <Panel title={isAssembly ? "Stückliste / Zuschnitt" : "Stückliste (dieser Stand)"}>
-              {isAssembly ? (
+            <Panel title={isBezugAssembly ? "Stückliste / Zuschnitt" : "Stückliste (dieser Stand)"}>
+              {isBezugAssembly ? (
                 <BezugCutBomPanel
                   revision={selected}
                   onChange={(patch) => updateRevision(selected.id, patch)}
@@ -804,7 +1015,7 @@ export function PartDetailView({ partId }: { partId: string }) {
                     : "border-[var(--line-strong)] bg-[var(--surface)]"
                 }`}
               />
-              <Link href={partPath(part.id, { stand: r.revision })} className="group">
+              <Link href={standHref(r.revision)} className="group">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-base font-semibold group-hover:text-[var(--accent)]">
                     Stand {r.revision}
@@ -821,6 +1032,8 @@ export function PartDetailView({ partId }: { partId: string }) {
           ))}
         </ol>
       </Panel>
+      </>
+      ) : null}
     </div>
   );
 }

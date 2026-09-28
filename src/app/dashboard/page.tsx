@@ -164,7 +164,7 @@ export default function DashboardPage() {
             const dueToday = t.dueDate.slice(0, 10) <= CALENDAR_TODAY;
             return (
               <NextAction
-                title="Als Nächstes"
+                title="Jetzt"
                 description={
                   <>
                     <span className="block">{t.title}</span>
@@ -180,30 +180,39 @@ export default function DashboardPage() {
               />
             );
           })()}
-          {top.slice(1).map((t) => {
-            const nextStep =
-              t.checklist?.find((c) => !c.done)?.label ??
-              taskTypeLabel[t.type];
-            const dueToday = t.dueDate.slice(0, 10) <= CALENDAR_TODAY;
-            return (
-              <div
-                key={t.id}
-                className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-4"
-              >
-                <div>
-                  <p className="font-semibold text-[var(--ink)]">{t.title}</p>
-                  <p className="mt-0.5 text-sm text-[var(--ink-muted)]">
-                    {nextStep}
-                    {" · "}
-                    {dueToday ? "Heute" : formatDate(t.dueDate)}
-                  </p>
-                </div>
-                <Link href={taskPath(t.id)}>
-                  <Button variant="secondary">Öffnen</Button>
-                </Link>
+          {top.length > 1 ? (
+            <details className="border-t border-[var(--line)] pt-4">
+              <summary className="cursor-pointer text-sm font-medium text-[var(--ink-muted)]">
+                Weitere heute ({top.length - 1})
+              </summary>
+              <div className="mt-3 space-y-3">
+                {top.slice(1).map((t) => {
+                  const nextStep =
+                    t.checklist?.find((c) => !c.done)?.label ??
+                    taskTypeLabel[t.type];
+                  const dueToday = t.dueDate.slice(0, 10) <= CALENDAR_TODAY;
+                  return (
+                    <div
+                      key={t.id}
+                      className="flex flex-wrap items-center justify-between gap-3"
+                    >
+                      <div>
+                        <p className="font-semibold text-[var(--ink)]">{t.title}</p>
+                        <p className="mt-0.5 text-sm text-[var(--ink-muted)]">
+                          {nextStep}
+                          {" · "}
+                          {dueToday ? "Heute" : formatDate(t.dueDate)}
+                        </p>
+                      </div>
+                      <Link href={taskPath(t.id)}>
+                        <Button variant="secondary">Öffnen</Button>
+                      </Link>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </details>
+          ) : null}
         </section>
       ) : null}
 

@@ -33,6 +33,8 @@ import { loadState, resetState, saveState, downloadStateJson, importStateFromJso
 import { supplyScopeLabel } from "./structure";
 import { expandCoverLabels, seatDisplayLabel } from "./program-templates";
 import { pickDemoPartImage } from "./part-images";
+import { openOrdersBlockingPart } from "./part-orders";
+import { reviewOrderAsTwin } from "./twin-review";
 import { taskPath } from "@/lib/nav";
 import type {
   Activity,
@@ -104,6 +106,8 @@ type StoreContextValue = {
   /** Mensch bestätigt Folge-Vorschlag → erzeugt Auftrag */
   acceptFollowUpProposal: (taskId: string) => Task | null;
   rejectFollowUpProposal: (taskId: string, reason?: string) => void;
+  /** Demo: digitaler Zwilling prüft den Auftrag erneut */
+  rerunTwinReview: (taskId: string) => boolean;
   updateFlow: (id: string, patch: Partial<ProcessFlow>) => void;
   moveFlowNode: (flowId: string, nodeId: string, x: number, y: number) => void;
   addFlowNode: (
@@ -198,8 +202,11 @@ type StoreContextValue = {
       componentDecisions?: { partId: string; carryOver: boolean }[];
     },
   ) => Revision | null;
-  /** Relaunch: Stand freigeben */
-  relaunchStand: (partId: string, revisionId: string) => void;
+  /** Relaunch: Stand freigeben – blockiert bei offenen Unteraufträgen */
+  relaunchStand: (
+    partId: string,
+    revisionId: string,
+  ) => { ok: true } | { ok: false; reason: string; openTasks: Task[] };
   /** Legt entwickeltes Teil + Spiegelteil (andere Seite, eigene TN) an */
   addLeftRightPair: (input: {
     projectId: string;
@@ -404,13 +411,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             detail: task.assigneeId,
           });
         }
-        const created: Task = {
+        let created: Task = {
           ...task,
           id: uid(),
           createdAt,
           history,
           checklist,
         };
+
+        // Demo: digitaler Zwilling des Bearbeiters prüft zuerst
+        if (created.assigneeId && state) {
+          const twin = state.users.find((u) => u.id === created.assigneeId);
+          if (twin) {
+            const review = reviewOrderAsTwin(created, twin, createdAt);
+            created = {
+              ...created,
+              twinReview: review,
+              status: review.ok ? created.status : "rueckfrage",
+              history: [
+                ...(created.history ?? []),
+                {
+                  id: uid(),
+                  at: createdAt,
+                  actorUserId: twin.id,
+                  action: review.ok
+                    ? "Digitale Prüfung OK"
+                    : "Digitale Prüfung – Rückfrage",
+                  detail: review.summary,
+                },
+              ],
+            };
+          }
+        }
+
         mutate((prev) => {
           const withNames = {
             ...created,
@@ -420,7 +453,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               return name ? { ...h, detail: name } : h;
             }),
           };
-          return { ...prev, tasks: [withNames, ...prev.tasks] };
+          const insights = [...(prev.agentInsights ?? [])];
+          if (created.twinReview) {
+            insights.unshift({
+              id: uid(),
+              at: createdAt,
+              agentId: "ag-entw",
+              title: created.twinReview.ok
+                ? `Zwilling von ${created.twinReview.twinName}: Auftrag klar`
+                : `Zwilling von ${created.twinReview.twinName}: Rückfrage`,
+              detail: created.twinReview.ok
+                ? created.twinReview.summary
+                : `${created.twinReview.summary} · ${created.twinReview.gaps.map((g) => g.label).join(", ")}`,
+              severity: created.twinReview.ok ? "ok" : "warn",
+              href: taskPath(created.id),
+              actionLabel: "Auftrag",
+            });
+          }
+          return {
+            ...prev,
+            tasks: [withNames, ...prev.tasks],
+            agentInsights: insights.slice(0, 40),
+          };
         });
         logActivity({
           action: "Auftrag angelegt",
@@ -428,7 +482,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           entityId: created.id,
           detail: created.title,
         });
-        notify(`Auftrag eingestellt: ${created.title}`);
+        if (created.twinReview && !created.twinReview.ok) {
+          notify(
+            `Rückfrage vom Zwilling (${created.twinReview.twinName}): ${created.twinReview.gaps.length} Punkt(e) fehlen`,
+          );
+        } else {
+          notify(`Auftrag eingestellt: ${created.title}`);
+        }
         return created;
       },
       updateTask: (id, patch) => {
@@ -469,6 +529,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   action: "Zuweisung geändert",
                   detail: `${nameOf(t.assigneeId)} → ${nameOf(patch.assigneeId)}`,
                 });
+                const twin = patch.assigneeId
+                  ? prev.users.find((u) => u.id === patch.assigneeId)
+                  : undefined;
+                if (twin) {
+                  const review = reviewOrderAsTwin(next, twin, now);
+                  next.twinReview = review;
+                  if (!review.ok) {
+                    next.status = "rueckfrage";
+                    next.needsAssignment = false;
+                  }
+                  entries.push({
+                    id: uid(),
+                    at: now,
+                    actorUserId: twin.id,
+                    action: review.ok
+                      ? "Digitale Prüfung OK"
+                      : "Digitale Prüfung – Rückfrage",
+                    detail: review.summary,
+                  });
+                }
               }
               if (patch.status && patch.status !== t.status) {
                 entries.push({
@@ -961,6 +1041,64 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...(prev.agentInsights ?? []),
           ].slice(0, 40),
         }));
+      },
+      rerunTwinReview: (taskId) => {
+        const task = state.tasks.find((t) => t.id === taskId);
+        if (!task?.assigneeId) return false;
+        const twin = state.users.find((u) => u.id === task.assigneeId);
+        if (!twin) return false;
+        const now = new Date().toISOString();
+        const review = reviewOrderAsTwin(task, twin, now);
+        mutate((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((t) => {
+            if (t.id !== taskId) return t;
+            return {
+              ...t,
+              twinReview: review,
+              status: review.ok
+                ? t.status === "rueckfrage"
+                  ? "offen"
+                  : t.status
+                : "rueckfrage",
+              history: [
+                ...(t.history ?? []),
+                {
+                  id: uid(),
+                  at: now,
+                  actorUserId: twin.id,
+                  action: review.ok
+                    ? "Digitale Prüfung OK"
+                    : "Digitale Prüfung – Rückfrage",
+                  detail: review.summary,
+                },
+              ],
+            };
+          }),
+          agentInsights: [
+            {
+              id: uid(),
+              at: now,
+              agentId: "ag-entw",
+              title: review.ok
+                ? `Zwilling von ${twin.name}: Auftrag klar`
+                : `Zwilling von ${twin.name}: Rückfrage`,
+              detail: review.ok
+                ? review.summary
+                : `${review.summary} · ${review.gaps.map((g) => g.label).join(", ")}`,
+              severity: review.ok ? ("ok" as const) : ("warn" as const),
+              href: taskPath(taskId),
+              actionLabel: "Auftrag",
+            },
+            ...(prev.agentInsights ?? []),
+          ].slice(0, 40),
+        }));
+        notify(
+          review.ok
+            ? `Zwilling von ${twin.name}: Auftrag klar`
+            : `Rückfrage vom Zwilling (${twin.name}): ${review.gaps.length} Punkt(e)`,
+        );
+        return true;
       },
       updateFlow: (id, patch) => {
         mutate((prev) => ({
@@ -1533,9 +1671,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return created;
       },
       relaunchStand: (partId, revisionId) => {
+        const openTasks = openOrdersBlockingPart(state.parts, state.tasks, partId);
+        if (openTasks.length > 0) {
+          const n = openTasks.length;
+          return {
+            ok: false as const,
+            reason:
+              n === 1
+                ? `Freigabe nicht möglich – noch 1 offener Auftrag: ${openTasks[0].title}`
+                : `Freigabe nicht möglich – noch ${n} offene Aufträge (inkl. Unteraufträge).`,
+            openTasks,
+          };
+        }
+        const rev = state.revisions.find((r) => r.id === revisionId && r.partId === partId);
+        if (!rev) {
+          return {
+            ok: false as const,
+            reason: "Stand nicht gefunden.",
+            openTasks: [],
+          };
+        }
         mutate((prev) => {
-          const rev = prev.revisions.find((r) => r.id === revisionId && r.partId === partId);
-          if (!rev) return prev;
           return {
             ...prev,
             revisions: prev.revisions.map((r) => {
@@ -1573,6 +1729,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           entityId: revisionId,
           detail: partId,
         });
+        return { ok: true as const };
       },
       addPart: (part) => {
         const created: Part = {
@@ -2012,7 +2169,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                       ? "Kunststoff"
                       : moduleKind === "profil"
                         ? "Profil"
-                        : "Struktur / Metall",
+                        : moduleKind === "elektrik"
+                          ? "Elektrik"
+                          : "Struktur / Metall",
             moduleKind,
             sortOrder,
           };

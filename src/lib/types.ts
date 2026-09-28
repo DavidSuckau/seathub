@@ -15,6 +15,7 @@ export type DepartmentId =
   | "werke"
   | "support"
   | "ausbildung"
+  | "elektronik"
   | "extern";
 
 export type TaskStatus =
@@ -45,7 +46,11 @@ export type TaskType =
   | "support"
   | "extern"
   | "pruefung"
-  | "aenderung";
+  | "aenderung"
+  | "schaumentwicklung"
+  | "konstruktion"
+  | "verdrahtung"
+  | "programmierung";
 
 export type ProjectStatus =
   | "planung"
@@ -91,7 +96,11 @@ export type SkillName =
   | "Schnittentwicklung"
   | "CAD"
   | "Musterbau"
-  | "Dokumentation";
+  | "Dokumentation"
+  | "Schaum"
+  | "Konstruktion"
+  | "Elektronik"
+  | "Programmierung";
 
 export interface Skill {
   name: SkillName;
@@ -229,10 +238,18 @@ export type ModuleKind =
   | "kunststoff"
   | "metall"
   | "schaum"
-  | "profil";
+  | "profil"
+  | "elektrik";
 
 /** Art des Bauteils in der Stückliste / Assemblierung */
-export type PartKind = "hauptteil" | "profil" | "befestigung" | "sonstig" | "schaum";
+export type PartKind =
+  | "hauptteil"
+  | "profil"
+  | "befestigung"
+  | "sonstig"
+  | "schaum"
+  | "kabel"
+  | "steuergeraet";
 
 /**
  * Welcher Stand einer Komponente (Profil, Schaum, …) an einem Bezug-/Assemblierungs-Stand hängt.
@@ -464,6 +481,18 @@ export interface Task {
    * Modus „vorschlagen“: nächster Schritt wartet auf Bestätigung durch Mensch.
    */
   pendingFollowUp?: PendingFollowUp;
+  /**
+   * Demo: Prüfung durch den digitalen Zwilling des Bearbeiters
+   * (Klarheit, Material, Stand …) – vor echter Bearbeitung.
+   */
+  twinReview?: {
+    at: string;
+    twinUserId: string;
+    twinName: string;
+    ok: boolean;
+    gaps: { id: string; label: string; detail: string }[];
+    summary: string;
+  };
 }
 
 /** Vorschlag für Folgeauftrag (Mensch bestätigt) */

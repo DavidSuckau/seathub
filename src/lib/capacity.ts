@@ -212,6 +212,10 @@ export const defaultPlannedHoursByType: Partial<Record<string, number>> = {
   extern: 8,
   pruefung: 2,
   aenderung: 4,
+  schaumentwicklung: 8,
+  konstruktion: 10,
+  verdrahtung: 6,
+  programmierung: 12,
 };
 
 export function suggestedPlannedHours(type: string): number {

@@ -40,11 +40,7 @@ function navSectionsForRole(
           title: "Studio",
           items: [
             { href: "/studio", label: "Studio" },
-            { href: "/flows", label: "Flows" },
-            { href: "/agents", label: "Agenten" },
             { href: "/projects", label: "Projekte" },
-            { href: "/materials", label: "Material" },
-            { href: "/org", label: "Organisation" },
           ],
         },
       ];
@@ -57,17 +53,11 @@ function navSectionsForRole(
             { href: "/tasks", label: "Aufträge" },
             { href: "/projects", label: "Programme" },
             { href: "/lops", label: "LOPs" },
-            { href: "/calendar", label: "Kalender" },
           ],
         },
         {
           title: "Studio",
-          items: [
-            { href: "/studio", label: "Studio" },
-            { href: "/materials", label: "Material" },
-            { href: "/flows", label: "Flows" },
-            { href: "/agents", label: "Agenten" },
-          ],
+          items: [{ href: "/studio", label: "Studio" }],
         },
       ];
     case "mitarbeiter":
@@ -132,7 +122,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     [state.demoRole, currentUser?.departmentId, teamLead],
   );
   const roleUsers = state.users.filter((u) => u.demoRole === state.demoRole);
-  const showStudio = state.demoRole !== "mitarbeiter" && state.demoRole !== "extern";
   const [demoOpen, setDemoOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -203,19 +192,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </ul>
             </div>
           ))}
-          {showStudio ? (
-            <div className="mt-auto border-t border-[var(--line)] pt-4">
-              <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-subtle)]">
-                Studio
-              </p>
-              <Link
-                href="/studio"
-                className="block rounded-lg px-2.5 py-2 text-sm text-[var(--ink-subtle)] hover:bg-[var(--bg-elevated)] hover:text-[var(--ink)]"
-              >
-                Studio
-              </Link>
-            </div>
-          ) : null}
         </nav>
 
         <div className="border-t border-[var(--line)] px-4 py-3">

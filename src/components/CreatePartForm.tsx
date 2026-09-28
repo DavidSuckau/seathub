@@ -15,6 +15,7 @@ const KINDS: { id: ModuleKind; partKind: PartKind }[] = [
   { id: "schaum", partKind: "schaum" },
   { id: "kunststoff", partKind: "hauptteil" },
   { id: "struktur", partKind: "hauptteil" },
+  { id: "elektrik", partKind: "sonstig" },
   { id: "schnittstelle", partKind: "hauptteil" },
   { id: "profil", partKind: "profil" },
 ];

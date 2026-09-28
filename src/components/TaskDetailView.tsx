@@ -38,6 +38,7 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
     completeTaskAutomated,
     acceptFollowUpProposal,
     rejectFollowUpProposal,
+    rerunTwinReview,
   } = useStore();
   const task = state.tasks.find((t) => t.id === taskId);
   const [showComplete, setShowComplete] = useState(false);
@@ -215,7 +216,61 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.75fr)] lg:items-start">
         <div className="min-w-0 space-y-6">
-          {!done && !waiting ? (
+          {!done && waiting ? (
+            <NextAction
+              title="Zuweisen"
+              description={
+                agentSuggestions[0]
+                  ? `SeatHub empfiehlt ${agentSuggestions[0].user.name}`
+                  : "Jemanden aus der Abteilung zuordnen"
+              }
+              primaryLabel={
+                agentSuggestions[0]
+                  ? `Zuordnen an ${agentSuggestions[0].user.name.split(" ")[0]}`
+                  : "Zuweisen"
+              }
+              onPrimary={
+                agentSuggestions[0]
+                  ? () => assignTo(agentSuggestions[0].user.id)
+                  : undefined
+              }
+              secondary={
+                agentSuggestions.length > 1 ? (
+                  <details className="w-full text-sm">
+                    <summary className="cursor-pointer text-[var(--ink-muted)]">
+                      Andere Vorschläge
+                    </summary>
+                    <ul className="mt-2 space-y-2">
+                      {agentSuggestions.slice(1).map((s) => (
+                        <li
+                          key={s.user.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] px-3 py-2"
+                        >
+                          <span className="font-medium">{s.user.name}</span>
+                          <Button
+                            variant="secondary"
+                            onClick={() => assignTo(s.user.id)}
+                          >
+                            Zuordnen
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null
+              }
+            />
+          ) : null}
+
+          {!done && !waiting && task.status === "rueckfrage" ? (
+            <NextAction
+              description="Fehlende Punkte nachziehen, dann erneut prüfen."
+              primaryLabel="Erneut prüfen"
+              onPrimary={() => rerunTwinReview(task.id)}
+            />
+          ) : null}
+
+          {!done && !waiting && task.status !== "rueckfrage" ? (
             <NextAction
               description={nextChecklist ?? taskTypeLabel[task.type]}
               primaryLabel={
@@ -240,6 +295,25 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
               onConfirm={completeWithTime}
               onCancel={() => setShowComplete(false)}
             />
+          ) : null}
+
+          {task.twinReview && !task.twinReview.ok ? (
+            <div className="rounded-[var(--radius)] border border-[var(--warn)]/35 bg-[var(--warn-soft)] px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--warn)]">
+                Rückfrage · Zwilling von {task.twinReview.twinName}
+              </p>
+              <p className="mt-1 text-sm font-medium text-[var(--ink)]">
+                {task.twinReview.summary}
+              </p>
+              <ul className="mt-3 space-y-2">
+                {task.twinReview.gaps.map((g) => (
+                  <li key={g.id} className="text-sm text-[var(--ink)]">
+                    <span className="font-medium">{g.label}</span>
+                    <span className="text-[var(--ink-muted)]"> – {g.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
 
           {(task.checklist?.length ?? 0) > 0 ? (
@@ -274,31 +348,32 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
             </section>
           ) : null}
 
-          {waiting ? (
-            <Panel title="Zuweisen">
-              <p className="mb-3 text-sm text-[var(--ink-muted)]">
-                SeatHub schlägt vor – du entscheidest.
-              </p>
-              <ul className="space-y-2">
-                {agentSuggestions.map((s, i) => (
-                  <li
-                    key={s.user.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] px-3 py-2.5"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">
-                        {i + 1}. {s.user.name}
-                      </p>
-                      <p className="text-xs text-[var(--ink-muted)]">
-                        {s.reasons.slice(0, 2).join(" · ")}
-                      </p>
-                    </div>
-                    <Button onClick={() => assignTo(s.user.id)}>Zuordnen</Button>
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          ) : null}
+          <details className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+            <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">
+              Digitale Prüfung
+              {task.twinReview?.ok ? " · OK" : ""}
+            </summary>
+            <div className="mt-3 space-y-2 text-sm text-[var(--ink-muted)]">
+              {task.twinReview?.ok ? (
+                <p>{task.twinReview.summary}</p>
+              ) : (
+                <p>
+                  Der digitale Zwilling prüft Klarheit, Material und Stand – bevor
+                  die Arbeit startet.
+                </p>
+              )}
+              {task.assigneeId ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => rerunTwinReview(task.id)}
+                >
+                  {task.twinReview ? "Erneut prüfen" : "Prüfung starten"}
+                </Button>
+              ) : (
+                <p className="text-xs">Erst zuweisen, dann prüfen.</p>
+              )}
+            </div>
+          </details>
 
           <details className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
             <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">

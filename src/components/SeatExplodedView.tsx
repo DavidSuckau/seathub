@@ -9,7 +9,7 @@ import Link from "next/link";
 
 type LayerId = Extract<
   ArtFilter,
-  "bezug" | "schaum" | "struktur" | "kunststoff" | "schnittstelle" | "profil"
+  "bezug" | "schaum" | "struktur" | "kunststoff" | "schnittstelle" | "profil" | "elektrik"
 >;
 
 const LAYERS: {
@@ -39,6 +39,11 @@ const LAYERS: {
     id: "kunststoff",
     label: "Kunststoff",
     match: (p) => p.moduleKind === "kunststoff",
+  },
+  {
+    id: "elektrik",
+    label: "Elektrik",
+    match: (p) => p.moduleKind === "elektrik",
   },
   {
     id: "schnittstelle",

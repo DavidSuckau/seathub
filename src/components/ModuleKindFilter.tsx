@@ -14,6 +14,7 @@ export const ART_FILTER_OPTIONS: ArtFilter[] = [
   "struktur",
   "metall",
   "schnittstelle",
+  "elektrik",
 ];
 
 export function artFilterLabel(art: ArtFilter): string {
