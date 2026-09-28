@@ -1,5 +1,5 @@
 import type { Lop, Part, Task } from "./types";
-import { partPath, taskPath } from "@/lib/nav";
+import { lopPath, partPath, taskPath } from "@/lib/nav";
 
 export type CalendarItemKind = "task" | "lop" | "part";
 
@@ -89,7 +89,7 @@ export function lopsToCalendarItems(
       kind: "lop" as const,
       title: l.title,
       dueDate: l.dueDate!.slice(0, 10),
-      href: `/lops/${l.id}`,
+      href: lopPath(l.id),
       status: l.status,
       overdue: l.dueDate!.slice(0, 10) < today,
     }));

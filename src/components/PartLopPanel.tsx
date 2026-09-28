@@ -7,7 +7,7 @@ import { Button, Field, Modal, Panel, StatusPill, inputClass } from "@/component
 import { lopSourceLabel, lopStatusLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, LopSource, Part } from "@/lib/types";
-import { navigate } from "@/lib/nav";
+import { navigateToLop, lopPath } from "@/lib/nav";
 
 const sources = Object.keys(lopSourceLabel) as LopSource[];
 
@@ -49,7 +49,7 @@ export function PartLopPanel({
     setTitle("");
     setDescription("");
     setPhotos([]);
-    navigate(`/lops/${created.id}`);
+    navigateToLop(created.id);
   }
 
   return (
@@ -65,7 +65,7 @@ export function PartLopPanel({
             <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
               <div>
                 <Link
-                  href={`/lops/${l.id}`}
+                  href={lopPath(l.id)}
                   className="font-medium text-[var(--ink)] hover:text-[var(--accent)]"
                 >
                   {l.title}

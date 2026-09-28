@@ -12,7 +12,7 @@ import {
   StatusPill,
   inputClass,
 } from "@/components/ui";
-import { navigate } from "@/lib/nav";
+import { navigateToLop, lopPath } from "@/lib/nav";
 import {
   type ArtFilter,
   ArtFilterLayout,
@@ -104,7 +104,7 @@ export default function LopsPage() {
     });
     setShowForm(false);
     setFormPhotos([]);
-    navigate(`/lops/${created.id}`);
+    navigateToLop(created.id);
   }
 
   const partsForProject = state.parts
@@ -317,7 +317,7 @@ export default function LopsPage() {
               return (
                 <li key={l.id}>
                   <Link
-                    href={`/lops/${l.id}`}
+                    href={lopPath(l.id)}
                     className="flex flex-col gap-2 py-4 transition hover:bg-[var(--bg-elevated)] sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>

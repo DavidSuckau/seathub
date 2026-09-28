@@ -21,7 +21,7 @@ import { formatDate, taskStatusLabel, taskTypeLabel } from "@/lib/labels";
 import { defaultTaskScope, isTeamLead, type TaskScope } from "@/lib/roles";
 import { useStore } from "@/lib/store";
 import type { ModuleKind, TaskStatus } from "@/lib/types";
-import { taskPath } from "@/lib/nav";
+import { taskPath, navigateToTask } from "@/lib/nav";
 
 const statusOptions: { value: string; label: string }[] = [
   { value: "alle", label: "Alle Status" },
@@ -206,6 +206,10 @@ export default function TasksPage() {
                   <li key={t.id}>
                     <Link
                       href={taskPath(t.id)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigateToTask(t.id);
+                      }}
                       className="flex flex-col gap-3 py-4 transition hover:bg-[var(--bg-elevated)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                     >
                       <div className="min-w-0 flex-1">

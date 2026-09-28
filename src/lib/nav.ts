@@ -44,6 +44,11 @@ export function projectPath(projectId: string): string {
   return `/projects/view/?id=${encodeURIComponent(projectId)}`;
 }
 
+/** LOP-Detail – stabil für neu angelegte IDs auf GitHub Pages. */
+export function lopPath(lopId: string): string {
+  return `/lops/view/?id=${encodeURIComponent(lopId)}`;
+}
+
 /** Client-Navigation inkl. basePath (Pages-Deploy). */
 export function navigate(path: string): void {
   if (typeof window === "undefined") return;
@@ -63,4 +68,8 @@ export function navigateToPart(
 
 export function navigateToProject(projectId: string): void {
   navigate(projectPath(projectId));
+}
+
+export function navigateToLop(lopId: string): void {
+  navigate(lopPath(lopId));
 }

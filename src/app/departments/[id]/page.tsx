@@ -33,7 +33,7 @@ import {
 } from "@/lib/capacity";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, ModuleKind, TaskStatus } from "@/lib/types";
-import { taskPath } from "@/lib/nav";
+import { taskPath, lopPath } from "@/lib/nav";
 
 const DONE = new Set(["abgeschlossen", "erledigt", "gestoppt"]);
 
@@ -293,7 +293,7 @@ function DeptDashboardInner() {
                   return (
                     <li key={l.id}>
                       <Link
-                        href={`/lops/${l.id}`}
+                        href={lopPath(l.id)}
                         className="flex flex-wrap items-center justify-between gap-2 py-3 hover:bg-[var(--bg-elevated)]"
                       >
                         <div>

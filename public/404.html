@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SeatHub – Weiterleitung</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 2rem;
+        color: #1f1f1f;
+        background: #f6f8fc;
+      }
+    </style>
+    <script>
+      (function () {
+        var path = location.pathname.replace(/\/+$/, "") || "/";
+        var segments = path.split("/").filter(Boolean);
+        var base = "";
+        var i = 0;
+        if (segments[0] === "seathub") {
+          base = "/seathub";
+          i = 1;
+        }
+        var kind = segments[i];
+        var id = segments[i + 1];
+        var kinds = { tasks: 1, parts: 1, projects: 1, lops: 1 };
+        if (kinds[kind] && id && id !== "view") {
+          var q = new URLSearchParams(location.search);
+          q.set("id", id);
+          location.replace(base + "/" + kind + "/view/?" + q.toString());
+          return;
+        }
+        location.replace(base + "/" || "/");
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Seite nicht gefunden – Weiterleitung…</p>
+    <p>
+      <a href="/seathub/">Zur Startseite</a>
+    </p>
+  </body>
+</html>

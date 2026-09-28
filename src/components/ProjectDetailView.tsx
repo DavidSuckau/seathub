@@ -22,7 +22,7 @@ import {
   projectStatusLabel,
   taskStatusLabel,
 } from "@/lib/labels";
-import { navigate, partPath, taskPath } from "@/lib/nav";
+import { navigate, navigateToTask, partPath, taskPath, lopPath } from "@/lib/nav";
 import { partReleaseState, projectReleaseProgress } from "@/lib/progress";
 import { useStore } from "@/lib/store";
 import { supplyScopeHint, supplyScopeLabel, equipmentLabels } from "@/lib/structure";
@@ -291,7 +291,14 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             ) : (
               tasks.map((t) => (
                 <li key={t.id} className="py-3">
-                  <Link href={taskPath(t.id)} className="font-medium hover:text-[var(--accent)]">
+                  <Link
+                    href={taskPath(t.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateToTask(t.id);
+                    }}
+                    className="font-medium hover:text-[var(--accent)]"
+                  >
                     {t.title}
                   </Link>
                   <p className="text-sm text-[var(--ink-muted)]">
@@ -310,7 +317,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             ) : (
               lops.map((l) => (
                 <li key={l.id} className="py-3">
-                  <Link href={`/lops/${l.id}`} className="font-medium hover:text-[var(--accent)]">
+                  <Link href={lopPath(l.id)} className="font-medium hover:text-[var(--accent)]">
                     {l.title}
                   </Link>
                   <p className="text-sm text-[var(--ink-muted)]">{lopStatusLabel[l.status]}</p>

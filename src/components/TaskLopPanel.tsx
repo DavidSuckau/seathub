@@ -7,7 +7,7 @@ import { Button, Field, Modal, Panel, StatusPill, inputClass } from "@/component
 import { lopSourceLabel, lopStatusLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { DepartmentId, LopSource, Task } from "@/lib/types";
-import { navigate } from "@/lib/nav";
+import { navigateToLop, lopPath } from "@/lib/nav";
 
 const sources = Object.keys(lopSourceLabel) as LopSource[];
 
@@ -60,7 +60,7 @@ export function TaskLopPanel({ task }: { task: Task }) {
     setTitle("");
     setDescription("");
     setPhotos([]);
-    navigate(`/lops/${created.id}`);
+    navigateToLop(created.id);
   }
 
   return (
@@ -75,7 +75,7 @@ export function TaskLopPanel({ task }: { task: Task }) {
           {related.map((l) => (
             <li key={l.id}>
               <Link
-                href={`/lops/${l.id}`}
+                href={lopPath(l.id)}
                 className="flex flex-wrap items-center justify-between gap-2 py-3 transition hover:bg-[var(--bg-elevated)]"
               >
                 <div>

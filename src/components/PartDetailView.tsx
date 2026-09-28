@@ -739,7 +739,14 @@ export function PartDetailView({ partId }: { partId: string }) {
               .filter((t) => t.partId === part.id)
               .map((t) => (
                 <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] py-2">
-                  <Link href={taskPath(t.id)} className="font-medium hover:text-[var(--accent)]">
+                  <Link
+                    href={taskPath(t.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateToTask(t.id);
+                    }}
+                    className="font-medium hover:text-[var(--accent)]"
+                  >
                     {t.title}
                   </Link>
                   <div className="flex gap-1.5">
