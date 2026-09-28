@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AmpelBadge, PageHeader, Panel } from "@/components/ui";
 import { departmentCapacityFromTasks } from "@/lib/capacity";
+import { projectPath } from "@/lib/nav";
 import { useStore } from "@/lib/store";
 
 export default function ManagementPage() {
@@ -160,7 +161,7 @@ export default function ManagementPage() {
               <li key={p.id} className="flex items-start justify-between gap-2 py-3">
                 <div>
                   <Link
-                    href={`/projects/${p.id}`}
+                    href={projectPath(p.id)}
                     className="font-medium hover:text-[var(--accent)]"
                   >
                     {p.name}

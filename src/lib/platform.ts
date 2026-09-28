@@ -552,7 +552,7 @@ export function createDemoInsights(): AgentInsight[] {
       detail: "Mustertermin gefährdet – Schnittentwicklung hinter Plan.",
       severity: "kritisch",
       actionLabel: "Zum Programm",
-      href: "/projects/p-audi",
+      href: "/projects/view/?id=p-audi",
     },
     {
       id: "ins-3",

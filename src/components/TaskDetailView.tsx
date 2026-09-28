@@ -10,7 +10,7 @@ import { TaskLopPanel } from "@/components/TaskLopPanel";
 import { TaskProfilePanel } from "@/components/TaskProfilePanel";
 import { Button, Field, Panel, StatusPill, inputClass } from "@/components/ui";
 import { NextAction } from "@/components/NextAction";
-import { navigateToTask } from "@/lib/nav";
+import { navigateToTask, projectPath } from "@/lib/nav";
 import {
   formatDateTime,
   formatDuration,
@@ -179,7 +179,7 @@ export function TaskDetailView({ taskId }: { taskId: string }) {
           ) : null}
           {project ? (
             <Link
-              href={`/projects/${project.id}`}
+              href={projectPath(project.id)}
               className="text-sm text-[var(--accent)]"
             >
               {project.code}

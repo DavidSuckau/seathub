@@ -39,6 +39,11 @@ export function partPath(
   return `/parts/view/?${q.toString()}`;
 }
 
+/** Projektdetail – stabil für neu angelegte IDs auf GitHub Pages. */
+export function projectPath(projectId: string): string {
+  return `/projects/view/?id=${encodeURIComponent(projectId)}`;
+}
+
 /** Client-Navigation inkl. basePath (Pages-Deploy). */
 export function navigate(path: string): void {
   if (typeof window === "undefined") return;
@@ -54,4 +59,8 @@ export function navigateToPart(
   opts?: { stand?: string },
 ): void {
   navigate(partPath(partId, opts));
+}
+
+export function navigateToProject(projectId: string): void {
+  navigate(projectPath(projectId));
 }

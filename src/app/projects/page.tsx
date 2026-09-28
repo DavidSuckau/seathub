@@ -13,6 +13,7 @@ import {
 import { ProgressBar } from "@/components/ProgressBar";
 import { AmpelBadge, Button, Modal, PageHeader, Panel, StatusPill } from "@/components/ui";
 import { projectStatusLabel, formatDate } from "@/lib/labels";
+import { projectPath } from "@/lib/nav";
 import { projectReleaseProgress } from "@/lib/progress";
 import { useStore } from "@/lib/store";
 import { equipmentLabels, getChildren, supplyScopeLabel } from "@/lib/structure";
@@ -110,7 +111,7 @@ export default function ProjectsPage() {
                 const progress = projectReleaseProgress(parts);
                 const equip = equipmentLabels(p.equipment);
                 return (
-                  <Link key={p.id} href={`/projects/${p.id}`}>
+                  <Link key={p.id} href={projectPath(p.id)}>
                     <Panel className="transition hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)]">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="min-w-0 flex-1">

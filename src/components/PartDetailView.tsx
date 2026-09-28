@@ -15,7 +15,14 @@ import { PartHauptbild, PartImageThumb } from "@/components/PartHauptbild";
 import { BezugCutBomPanel } from "@/components/BezugCutBomPanel";
 import { DxfViewerPanel } from "@/components/DxfViewer";
 import { Button, Field, PageHeader, Panel, StatusPill, inputClass } from "@/components/ui";
-import { navigate, navigateToPart, navigateToTask, partPath, taskPath } from "@/lib/nav";
+import {
+  navigateToPart,
+  navigateToProject,
+  navigateToTask,
+  partPath,
+  projectPath,
+  taskPath,
+} from "@/lib/nav";
 import {
   getChildComponents,
   getUsedOnPartIds,
@@ -140,7 +147,7 @@ export function PartDetailView({ partId }: { partId: string }) {
               onClick={() => {
                 const projectId = part.projectId;
                 deletePart(part.id);
-                navigate(`/projects/${projectId}`);
+                navigateToProject(projectId);
               }}
             >
               Endgültig löschen
@@ -166,7 +173,7 @@ export function PartDetailView({ partId }: { partId: string }) {
           {developmentRoleLabel[role]}
         </StatusPill>
         <Link
-          href={`/projects/${part.projectId}`}
+          href={projectPath(part.projectId)}
           className="text-sm text-[var(--accent)] hover:underline"
         >
           Zum Programm

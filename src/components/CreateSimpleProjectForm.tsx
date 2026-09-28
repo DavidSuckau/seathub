@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button, Field, Modal, inputClass } from "@/components/ui";
-import { navigate } from "@/lib/nav";
+import { navigateToProject } from "@/lib/nav";
 import { useStore } from "@/lib/store";
 import type { SupplyScope } from "@/lib/types";
 
@@ -44,7 +44,7 @@ export function CreateSimpleProjectForm() {
       name: "",
       supplyScope: "komplettsitz",
     });
-    navigate(`/projects/${project.id}`);
+    navigateToProject(project.id);
   }
 
   function close() {

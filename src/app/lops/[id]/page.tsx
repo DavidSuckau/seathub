@@ -12,7 +12,7 @@ import {
 } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { LopStatus } from "@/lib/types";
-import { partPath } from "@/lib/nav";
+import { partPath, projectPath } from "@/lib/nav";
 
 const statuses = Object.keys(lopStatusLabel) as LopStatus[];
 
@@ -201,7 +201,9 @@ export default function LopDetailPage() {
               <div>
                 <dt className="text-[var(--ink-subtle)]">Projekt</dt>
                 <dd className="mt-1 font-medium">
-                  <Link href={`/projects/${project?.id}`}>{project?.name}</Link>
+                  <Link href={project?.id ? projectPath(project.id) : "/projects/"}>
+                    {project?.name}
+                  </Link>
                 </dd>
               </div>
               <div>
