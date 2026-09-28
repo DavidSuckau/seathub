@@ -188,12 +188,13 @@ export function Modal({
   title: string;
   children: React.ReactNode;
   onClose: () => void;
-  size?: "md" | "lg" | "xl";
+  size?: "md" | "lg" | "xl" | "full";
 }) {
   const widths = {
     md: "max-w-lg",
     lg: "max-w-3xl",
     xl: "max-w-5xl",
+    full: "max-w-6xl",
   };
 
   useEffect(() => {
@@ -210,7 +211,7 @@ export function Modal({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-3 sm:p-6 md:p-8">
       <button
         type="button"
         aria-label="Schließen"
@@ -221,22 +222,23 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className={`relative z-10 my-4 w-full ${widths[size]} animate-fade-up rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-md)]`}
+        className={`relative z-10 my-2 flex w-full flex-col ${widths[size]} animate-fade-up rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-md)] sm:my-4`}
+        style={{ maxHeight: "min(92vh, 920px)" }}
       >
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-5 py-3 rounded-t-[var(--radius-lg)]">
-          <h2 id="modal-title" className="text-[15px] font-semibold tracking-tight text-[var(--ink)]">
+        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-5 py-3.5 rounded-t-[var(--radius-lg)] sm:px-6">
+          <h2 id="modal-title" className="text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-sm text-[var(--ink-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--ink)]"
+            className="rounded-md px-2.5 py-1.5 text-sm text-[var(--ink-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--ink)]"
             aria-label="Assistent schließen"
           >
             ✕
           </button>
         </header>
-        <div className="max-h-[min(80vh,720px)] overflow-y-auto p-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{children}</div>
       </div>
     </div>
   );

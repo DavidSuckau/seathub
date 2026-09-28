@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store";
 import type { SupplyScope } from "@/lib/types";
 
 /**
- * Kleines Programm anlegen – ohne vorab die ganze Sitzstruktur.
+ * Programm anlegen – ohne vorab die ganze Sitzstruktur.
  * Struktur wächst später mit den Bauteilen.
  */
 export function CreateSimpleProjectForm() {
@@ -47,21 +47,28 @@ export function CreateSimpleProjectForm() {
     navigate(`/projects/${project.id}`);
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
     <>
       <Button onClick={() => setOpen(true)}>Neues Projekt</Button>
       {open ? (
-        <Modal title="Neues Projekt" size="md" onClose={() => setOpen(false)}>
-          <p className="mb-4 text-sm text-[var(--ink-muted)]">
-            Nur Kunde und Programm – Sitzreihen und Bauteile legst du danach Stück für Stück an.
+        <Modal title="Neues Projekt" size="xl" onClose={close}>
+          <p className="mb-5 max-w-2xl text-sm text-[var(--ink-muted)]">
+            Nur Kunde und Programm anlegen. Sitzreihen und Bauteile kommen danach
+            Stück für Stück – die Struktur wächst mit.
           </p>
           {error ? (
-            <p className="mb-3 rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
+            <p className="mb-4 rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
               {error}
             </p>
           ) : null}
-          <div className="grid gap-3">
-            <Field label="Kunde">
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Kunde *">
               <input
                 className={inputClass}
                 value={form.customer}
@@ -70,7 +77,7 @@ export function CreateSimpleProjectForm() {
                 autoFocus
               />
             </Field>
-            <Field label="Programmcode">
+            <Field label="Programmcode *">
               <input
                 className={inputClass}
                 value={form.code}
@@ -83,7 +90,7 @@ export function CreateSimpleProjectForm() {
                 className={inputClass}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="wird aus Code erzeugt"
+                placeholder="wird aus Code erzeugt, z. B. Programm W990"
               />
             </Field>
             <Field label="Leistungsumfang">
@@ -103,9 +110,18 @@ export function CreateSimpleProjectForm() {
               </select>
             </Field>
           </div>
-          <div className="mt-5 flex gap-2">
-            <Button onClick={submit}>Anlegen</Button>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
+
+          <div className="mt-6 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg)] px-4 py-3 text-sm text-[var(--ink-muted)]">
+            <p className="font-medium text-[var(--ink)]">Danach</p>
+            <p className="mt-1">
+              Im Projekt Bauteile anlegen (Bezug, Schaum, Profil …). Sitzreihen und
+              Varianten entstehen automatisch mit den Bauteilen.
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--line)] pt-5">
+            <Button onClick={submit}>Projekt anlegen</Button>
+            <Button variant="ghost" onClick={close}>
               Abbrechen
             </Button>
           </div>

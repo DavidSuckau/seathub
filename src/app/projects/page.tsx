@@ -64,7 +64,7 @@ export default function ProjectsPage() {
       {showWizard ? (
         <Modal
           title="Programm-Assistent (erweitert)"
-          size="xl"
+          size="full"
           onClose={() => setShowWizard(false)}
         >
           <CreateProgramWizard
