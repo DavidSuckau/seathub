@@ -1,6 +1,7 @@
 import type { Ampel } from "@/lib/types";
 import { ampelLabel } from "@/lib/labels";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 export function AmpelBadge({ ampel, showLabel = true }: { ampel: Ampel; showLabel?: boolean }) {
   return (
@@ -196,8 +197,10 @@ export function Modal({
     xl: "max-w-5xl",
     full: "max-w-6xl",
   };
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     function onKey(e: KeyboardEvent) {
@@ -210,37 +213,49 @@ export function Modal({
     };
   }, [onClose]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-3 sm:p-6 md:p-8">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] overflow-y-auto"
+      role="presentation"
+    >
       <button
         type="button"
         aria-label="Schließen"
-        className="fixed inset-0 bg-[var(--ink)]/40 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-[var(--ink)]/45"
         onClick={onClose}
       />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        className={`relative z-10 my-2 flex w-full flex-col ${widths[size]} animate-fade-up rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-md)] sm:my-4`}
-        style={{ maxHeight: "min(92vh, 920px)" }}
-      >
-        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-5 py-3.5 rounded-t-[var(--radius-lg)] sm:px-6">
-          <h2 id="modal-title" className="text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">
-            {title}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-2.5 py-1.5 text-sm text-[var(--ink-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--ink)]"
-            aria-label="Assistent schließen"
-          >
-            ✕
-          </button>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{children}</div>
+      <div className="relative flex min-h-full items-start justify-center p-4 sm:items-center sm:p-6 md:p-8">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+          className={`relative z-10 my-4 w-full ${widths[size]} rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-md)]`}
+        >
+          <header className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-3.5 sm:px-6">
+            <h2
+              id="modal-title"
+              className="text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg"
+            >
+              {title}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md px-2.5 py-1.5 text-sm text-[var(--ink-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--ink)]"
+              aria-label="Schließen"
+            >
+              ✕
+            </button>
+          </header>
+          <div className="max-h-[min(78vh,760px)] overflow-y-auto p-5 sm:p-6">
+            {children}
+          </div>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
